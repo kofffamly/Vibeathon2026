@@ -16,6 +16,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ tel: string | null; mdp: string | null }>({ tel: null, mdp: null });
   const [touched, setTouched] = useState<{ tel: boolean; mdp: boolean }>({ tel: false, mdp: false });
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const validate = (field: 'tel' | 'mdp', value: string) => {
     const e = validateLoginForm(field === 'tel' ? value : tel, field === 'mdp' ? value : mdp);
@@ -29,9 +30,14 @@ export default function Login() {
     if (e.tel || e.mdp) return;
 
     setLoading(true);
+    setApiError(null);
     const result = await login(tel, mdp);
     setLoading(false);
-    if (result.success) router.replace('/(tabs)');
+    if (result.success) {
+      router.replace('/(tabs)');
+    } else {
+      setApiError(result.error || 'Impossible de se connecter');
+    }
   };
 
   return (
@@ -90,6 +96,8 @@ export default function Login() {
             </TouchableOpacity>
           </View>
           {touched.mdp && errors.mdp && <Text style={styles.errorText}>{errors.mdp}</Text>}
+
+          {apiError ? <Text style={styles.apiError}>{apiError}</Text> : null}
 
           <TouchableOpacity style={styles.forgotRow}>
             <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
@@ -151,4 +159,5 @@ const styles = StyleSheet.create({
   btnWhatsapp: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 28, paddingVertical: 14, borderWidth: 1, borderColor: '#E5E7EB', gap: 8 },
   whatsappIcon: { fontSize: 18 },
   btnWhatsappText: { color: '#1A1A1A', fontSize: 15, fontWeight: '500' },
+  apiError: { color: '#EF4444', marginTop: 10, fontSize: 13, textAlign: 'center' },
 });
