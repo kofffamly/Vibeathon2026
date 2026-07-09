@@ -48,15 +48,22 @@ export default function Register() {
     revalidate({ activites: next });
   };
 
+  const [apiError, setApiError] = useState<string | null>(null);
+
   const handleSubmit = async () => {
     setTouched({ nom: true, tel: true, localisation: true, activites: true, mdp: true });
     const e = revalidate();
     if (Object.values(e).some(v => v !== null)) return;
 
     setLoading(true);
+    setApiError(null);
     const result = await register({ nom, tel, localisation, activites, mdp });
     setLoading(false);
-    if (result.success) router.replace('/(tabs)');
+    if (result.success) {
+      router.replace('/(tabs)');
+    } else {
+      setApiError(result.error || 'Impossible de créer le compte');
+    }
   };
 
   return (
@@ -137,6 +144,8 @@ export default function Register() {
           </View>
           {touched.activites && errors.activites && <Text style={styles.errorText}>{errors.activites}</Text>}
 
+          {apiError ? <Text style={styles.apiError}>{apiError}</Text> : null}
+
           <Text style={styles.label}>MOT DE PASSE</Text>
           <View style={[styles.inputRow, touched.mdp && errors.mdp ? styles.inputError : null]}>
             <TextInput
@@ -198,4 +207,5 @@ const styles = StyleSheet.create({
   chipTextSelected: { color: '#1B4332', fontWeight: '600' },
   btnPrimary: { backgroundColor: '#1B4332', borderRadius: 28, paddingVertical: 16, alignItems: 'center', marginTop: 28, marginBottom: 32, minHeight: 52, justifyContent: 'center' },
   btnPrimaryText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  apiError: { color: '#EF4444', marginTop: 10, fontSize: 13, textAlign: 'center' },
 });

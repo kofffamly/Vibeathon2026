@@ -1,5 +1,6 @@
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useAuthStore } from '@/store/authStore';
 
 const STATS = [
   { icon: '🌾', val: '12', label: 'Annonces' },
@@ -24,6 +25,12 @@ const SECTIONS = [
 
 export default function Profil() {
   const router = useRouter();
+  const user = useAuthStore(s => s.user);
+
+  const handleLogout = () => {
+    useAuthStore.getState().logout();
+    router.replace('/auth/login');
+  };
 
   return (
     <SafeAreaView style={styles.root}>
@@ -40,14 +47,14 @@ export default function Profil() {
         {/* ── Carte identité ── */}
         <View style={styles.identiteCard}>
           <View style={styles.avatar}>
-            <Text style={styles.initiales}>AK</Text>
+            <Text style={styles.initiales}>{user ? user.nom.slice(0, 2).toUpperCase() : '??'}</Text>
           </View>
           <View style={styles.identiteInfo}>
-            <Text style={styles.nom}>Amadou Koné</Text>
-            <Text style={styles.role}>Agriculteur · Éleveur</Text>
+            <Text style={styles.nom}>{user?.nom ?? 'Invité'}</Text>
+            <Text style={styles.role}>{user ? user.role.join(' · ') : 'Utilisateur non connecté'}</Text>
             <View style={styles.locRow}>
               <Text style={styles.locIcon}>📍</Text>
-              <Text style={styles.locText}>Bouaké, Côte d'Ivoire</Text>
+              <Text style={styles.locText}>{user?.localisation ?? '—'}</Text>
             </View>
           </View>
         </View>
@@ -109,12 +116,12 @@ export default function Profil() {
           ))}
 
           {/* Déconnexion */}
-          <TouchableOpacity style={styles.row} onPress={() => router.replace('/auth/login')}>
+          <TouchableOpacity style={styles.row} onPress={user ? handleLogout : () => router.replace('/auth/login')}>
             <View style={[styles.iconCircle, { backgroundColor: '#FEE2E2' }]}>
               <Text style={styles.rowIcon}>🚪</Text>
             </View>
             <View style={styles.rowTexts}>
-              <Text style={[styles.rowLabel, { color: '#EF4444' }]}>Déconnexion</Text>
+              <Text style={[styles.rowLabel, { color: '#EF4444' }]}>{user ? 'Déconnexion' : 'Se connecter'}</Text>
             </View>
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>

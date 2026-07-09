@@ -1,21 +1,46 @@
+import { useState } from 'react';
 import {
   View, Text, TouchableOpacity,
   StyleSheet, SafeAreaView, FlatList, Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCartStore } from '@/store/cartStore';
+import { useAuthStore } from '@/store/authStore';
+import { api } from '@/store/api';
 
 const fmt = (n: number) =>
   n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' FCFA';
 
 export default function Panier() {
   const router = useRouter();
+  const token = useAuthStore(s => s.token);
   const { items, updateQte, removeItem, clearCart, total, totalItems } = useCartStore();
   const [confirmed, setConfirmed] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [placingOrder, setPlacingOrder] = useState(false);
 
-  const handleValider = () => {
+  const handleValider = async () => {
     if (items.length === 0) return;
-    setConfirmed(true);
+    if (!token) {
+      router.replace('/auth/login');
+      return;
+    }
+    setCheckoutError(null);
+    setPlacingOrder(true);
+    try {
+      await api.placeOrder(token, {
+        items,
+        total: total(),
+        delivery: 'À négocier',
+        paymentMethod: 'Paiement sur place',
+      });
+      clearCart();
+      setConfirmed(true);
+    } catch (error) {
+      setCheckoutError(error instanceof Error ? error.message : 'Impossible de valider la commande');
+    } finally {
+      setPlacingOrder(false);
+    }
   };
 
   return (
@@ -90,14 +115,21 @@ export default function Panier() {
         />
       )}
 
+      {checkoutError ? <Text style={styles.checkoutError}>{checkoutError}</Text> : null}
       <View style={styles.footer}>
         <TouchableOpacity
           style={[styles.btnValider, items.length === 0 && styles.btnDisabled]}
           onPress={handleValider}
-          disabled={items.length === 0}
+          disabled={items.length === 0 || placingOrder}
         >
-          <Text style={styles.btnValiderIcon}>🛒</Text>
-          <Text style={styles.btnValiderText}>Valider la commande — {fmt(total())}</Text>
+          {placingOrder ? (
+            <Text style={styles.btnValiderText}>En cours...</Text>
+          ) : (
+            <>
+              <Text style={styles.btnValiderIcon}>🛒</Text>
+              <Text style={styles.btnValiderText}>Valider la commande — {fmt(total())}</Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -129,8 +161,6 @@ export default function Panier() {
     </SafeAreaView>
   );
 }
-
-import { useState } from 'react';
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#FAF7F0' },
@@ -169,6 +199,7 @@ const styles = StyleSheet.create({
   btnDisabled: { backgroundColor: '#9CA3AF' },
   btnValiderIcon: { fontSize: 16 },
   btnValiderText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+  checkoutError: { paddingHorizontal: 20, color: '#EF4444', textAlign: 'center', marginBottom: 10 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' },
   modalCard: { backgroundColor: '#FAF7F0', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 32, alignItems: 'center', paddingBottom: 48 },
   checkCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },

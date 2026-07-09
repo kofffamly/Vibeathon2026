@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { api } from '@/store/api';
 
 // ── Règles de validation ──────────────────────────────────────────
 
@@ -64,7 +65,8 @@ export function hasErrors(errors: Record<string, string | null>): boolean {
 
 type AuthStore = {
   isLoggedIn: boolean;
-  user: { nom: string; tel: string; role: string[] } | null;
+  token: string | null;
+  user: { id: string; nom: string; tel: string; localisation: string; activites: string[]; role: string[] } | null;
   login: (tel: string, mdp: string) => Promise<{ success: boolean; error?: string }>;
   register: (data: {
     nom: string; tel: string; localisation: string;
@@ -75,6 +77,7 @@ type AuthStore = {
 
 export const useAuthStore = create<AuthStore>((set) => ({
   isLoggedIn: false,
+  token: null,
   user: null,
 
   login: async (tel, mdp) => {
@@ -82,10 +85,13 @@ export const useAuthStore = create<AuthStore>((set) => ({
     if (hasErrors(errors)) {
       return { success: false, error: 'Formulaire invalide' };
     }
-    // Simulation appel API
-    await new Promise(r => setTimeout(r, 500));
-    set({ isLoggedIn: true, user: { nom: 'Amadou Koné', tel, role: ['Agriculteur'] } });
-    return { success: true };
+    try {
+      const response = await api.login(tel, mdp);
+      set({ isLoggedIn: true, token: response.token, user: response.user });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Erreur de connexion' };
+    }
   },
 
   register: async ({ nom, tel, localisation, activites, mdp }) => {
@@ -93,11 +99,14 @@ export const useAuthStore = create<AuthStore>((set) => ({
     if (hasErrors(errors)) {
       return { success: false, error: 'Formulaire invalide' };
     }
-    // Simulation appel API
-    await new Promise(r => setTimeout(r, 500));
-    set({ isLoggedIn: true, user: { nom, tel, role: activites } });
-    return { success: true };
+    try {
+      const response = await api.register({ nom, tel, localisation, activites, mdp });
+      set({ isLoggedIn: true, token: response.token, user: response.user });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Erreur d'inscription" };
+    }
   },
 
-  logout: () => set({ isLoggedIn: false, user: null }),
+  logout: () => set({ isLoggedIn: false, token: null, user: null }),
 }));
