@@ -104,7 +104,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       set({ isLoggedIn: true, token: response.token, user: response.user });
       return { success: true };
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Erreur d'inscription' };
+      return { success: false, error: error instanceof Error ? error.message : "Erreur d'inscription" };
     }
   },
 

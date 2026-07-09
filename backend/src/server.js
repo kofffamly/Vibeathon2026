@@ -286,6 +286,19 @@ app.post('/orders/:id/pay', authenticate, (req, res) => {
   res.json(order);
 });
 
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Backend Vibeathon fonctionne',
+    routes: [
+      '/auth/register',
+      '/auth/login',
+      '/auth/me',
+      '/products',
+      '/orders'
+    ],
+  });
+});
+
 app.use((req, res) => {
   res.status(404).json({ error: 'Route introuvable' });
 });

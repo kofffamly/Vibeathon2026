@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import { api } from '@/store/api';
 import type { Order } from '@/types';
@@ -12,22 +12,29 @@ export default function Commandes() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const charger = async () => {
-      if (!token) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await api.getOrders(token);
-        setOrders(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Impossible de charger les commandes');
-      } finally {
-        setLoading(false);
-      }
-    };
-    charger();
+  const loadOrders = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.getOrders(token);
+      setOrders(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Impossible de charger les commandes');
+    } finally {
+      setLoading(false);
+    }
   }, [token]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadOrders();
+    }, [loadOrders])
+  );
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
 
   if (!token) {
     return (

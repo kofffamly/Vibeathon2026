@@ -162,8 +162,6 @@ export default function Panier() {
   );
 }
 
-import { useState } from 'react';
-
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#FAF7F0' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12 },
