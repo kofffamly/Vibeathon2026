@@ -64,15 +64,6 @@ export default function TabLayout() {
         name="panier"
         options={{
           title: 'Panier',
-          tabBarIcon: ({ color }) => <PanierIcon color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="marketplace"
-        options={{
-          title: '',
-          tabBarIcon: () => <PlusButton />,
-          tabBarLabel: () => null,
         }}
       />
       <Tabs.Screen
