@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, Image, ScrollView,
   TouchableOpacity, StyleSheet,
@@ -9,6 +9,7 @@ import { Feather } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { LISTINGS } from '@/data/mockData';
 import StarRating from '@/components/StarRating';
+import { useCartStore } from '@/store/cartStore';
 
 const BADGE_COLORS: Record<string, string> = {
   récoltes: '#D97706',
@@ -18,9 +19,14 @@ const BADGE_COLORS: Record<string, string> = {
 };
 
 export default function ListingDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
-  const listing = LISTINGS.find(l => l.id === id);
+  const { id }   = useLocalSearchParams<{ id: string }>();
+  const router   = useRouter();
+  const listing  = LISTINGS.find(l => l.id === id);
+  const addItem  = useCartStore(s => s.addItem);
+  const items    = useCartStore(s => s.items);
+  const [added, setAdded] = useState(false);
+
+  const inCart = items.some(i => i.listing.id === id);
 
   if (!listing) {
     return (
@@ -34,6 +40,12 @@ export default function ListingDetailScreen() {
       </SafeAreaView>
     );
   }
+
+  const handleAddToCart = () => {
+    addItem(listing);
+    setAdded(true);
+    setTimeout(() => router.push('/(tabs)/cart'), 800);
+  };
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -95,11 +107,18 @@ export default function ListingDetailScreen() {
 
       {/* ── Footer CTA ── */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.btnContact}>
+        <TouchableOpacity style={styles.btnContact} onPress={() => router.push('/ai-assistant')}>
           <Text style={styles.btnContactText}>💬 Contacter</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.btnBuy}>
-          <Text style={styles.btnBuyText}>Ajouter au panier</Text>
+        <TouchableOpacity
+          style={[styles.btnBuy, (added || inCart) && styles.btnBuyDone]}
+          onPress={handleAddToCart}
+          disabled={added || inCart}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.btnBuyText}>
+            {added || inCart ? '✅ Ajouté au panier' : 'Ajouter au panier'}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -130,15 +149,12 @@ const styles = StyleSheet.create({
 
   body:      { padding: 20 },
   title:     { fontSize: 20, fontWeight: '800', color: Colors.fg, lineHeight: 28, marginBottom: 12 },
-
   priceRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   price:     { fontSize: 22, fontWeight: '800', color: Colors.primary },
   unit:      { fontSize: 14, fontWeight: '600', color: Colors.mutedFg },
-
   metaRow:   { flexDirection: 'row', gap: 16, marginBottom: 20 },
   metaItem:  { flexDirection: 'row', alignItems: 'center', gap: 5 },
   metaText:  { fontSize: 13, color: Colors.mutedFg, fontWeight: '500', textTransform: 'capitalize' },
-
   divider:   { height: 1, backgroundColor: Colors.border, marginBottom: 20 },
 
   sellerCard: {
@@ -180,5 +196,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
-  btnBuyText: { fontSize: 14, fontWeight: '800', color: Colors.white },
+  btnBuyDone:  { backgroundColor: Colors.success },
+  btnBuyText:  { fontSize: 14, fontWeight: '800', color: Colors.white },
 });

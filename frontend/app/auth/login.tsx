@@ -8,6 +8,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
+import {
+  useAuthStore,
+  validateLoginForm, validateRegisterForm, hasErrors,
+} from '@/store/authStore';
 
 const ACTIVITIES = [
   'Agriculteur', 'Éleveur', "Fournisseur d'intrants",
@@ -15,38 +19,64 @@ const ACTIVITIES = [
 ];
 
 export default function AuthScreen() {
-  const router = useRouter();
-  const [tab, setTab] = useState<'login' | 'signup'>('login');
-  const [activity, setActivity] = useState('Agriculteur');
-  const [showPwd, setShowPwd] = useState(false);
+  const router  = useRouter();
+  const login   = useAuthStore(s => s.login);
+  const register = useAuthStore(s => s.register);
+
+  const [tab,       setTab]      = useState<'login' | 'signup'>('login');
+  const [showPwd,   setShowPwd]  = useState(false);
+  const [loading,   setLoading]  = useState(false);
+
+  // champs
+  const [nom,          setNom]          = useState('');
+  const [tel,          setTel]          = useState('');
+  const [localisation, setLocalisation] = useState('');
+  const [activites,    setActivites]    = useState<string[]>(['Agriculteur']);
+  const [mdp,          setMdp]          = useState('');
+
+  // erreurs
+  const [errors, setErrors] = useState<Record<string, string | null>>({});
+
+  const toggleActivite = (a: string) =>
+    setActivites(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]);
+
+  const handleSubmit = async () => {
+    const errs = tab === 'login'
+      ? validateLoginForm(tel, mdp)
+      : validateRegisterForm(nom, tel, localisation, activites, mdp);
+
+    setErrors(errs);
+    if (hasErrors(errs)) return;
+
+    setLoading(true);
+    const res = tab === 'login'
+      ? await login(tel, mdp)
+      : await register({ nom, tel, localisation, activites, mdp });
+    setLoading(false);
+
+    if (res.success) router.replace('/(tabs)');
+    else setErrors(e => ({ ...e, global: res.error ?? 'Erreur inconnue' }));
+  };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={{ flex: 1, backgroundColor: Colors.bg }}>
 
-        {/* ── Header ── */}
         <LinearGradient colors={[Colors.primaryDark, Colors.primary]} style={styles.header}>
           <SafeAreaView edges={['top']}>
             <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
               <Feather name="arrow-left" size={18} color={Colors.white} />
             </TouchableOpacity>
-            <Text style={styles.heading}>
-              {tab === 'login' ? 'Bon retour !' : 'Rejoignez-nous'}
-            </Text>
+            <Text style={styles.heading}>{tab === 'login' ? 'Bon retour !' : 'Rejoignez-nous'}</Text>
             <Text style={styles.subheading}>
               {tab === 'login' ? 'Connectez-vous à votre compte' : 'Créez votre compte gratuit'}
             </Text>
-
-            {/* Tab switcher */}
             <View style={styles.tabs}>
               {(['login', 'signup'] as const).map(t => (
                 <TouchableOpacity
                   key={t}
                   style={[styles.tabBtn, tab === t && styles.tabBtnActive]}
-                  onPress={() => setTab(t)}
+                  onPress={() => { setTab(t); setErrors({}); }}
                 >
                   <Text style={[styles.tabTxt, tab === t && styles.tabTxtActive]}>
                     {t === 'login' ? 'Connexion' : 'Inscription'}
@@ -57,45 +87,53 @@ export default function AuthScreen() {
           </SafeAreaView>
         </LinearGradient>
 
-        {/* ── Form ── */}
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+
+          {errors.global && <Text style={styles.globalErr}>{errors.global}</Text>}
+
           {tab === 'signup' && (
-            <Field label="Nom complet" placeholder="Ex: Amadou Koné" />
+            <Field
+              label="Nom complet" placeholder="Ex: Amadou Koné"
+              value={nom} onChangeText={setNom} error={errors.nom}
+            />
           )}
 
           <View style={styles.field}>
             <Text style={styles.label}>NUMÉRO DE TÉLÉPHONE</Text>
             <View style={styles.phoneRow}>
-              <View style={styles.prefix}>
-                <Text style={styles.prefixTxt}>+225</Text>
-              </View>
+              <View style={styles.prefix}><Text style={styles.prefixTxt}>+225</Text></View>
               <TextInput
-                style={[styles.input, styles.phoneInput]}
+                style={[styles.input, styles.phoneInput, errors.tel ? styles.inputErr : null]}
                 placeholder="07 00 00 00 00"
                 keyboardType="phone-pad"
                 placeholderTextColor={Colors.mutedFg}
+                value={tel}
+                onChangeText={setTel}
               />
             </View>
+            {errors.tel && <Text style={styles.errTxt}>{errors.tel}</Text>}
           </View>
 
           {tab === 'signup' && (
             <>
-              <Field label="Localisation" placeholder="Ville / Région" icon="map-pin" />
+              <Field
+                label="Localisation" placeholder="Ville / Région" icon="map-pin"
+                value={localisation} onChangeText={setLocalisation} error={errors.localisation}
+              />
               <View style={styles.field}>
                 <Text style={styles.label}>TYPE D'ACTIVITÉ</Text>
                 <View style={styles.activityGrid}>
                   {ACTIVITIES.map(a => (
                     <TouchableOpacity
                       key={a}
-                      style={[styles.chip, activity === a && styles.chipActive]}
-                      onPress={() => setActivity(a)}
+                      style={[styles.chip, activites.includes(a) && styles.chipActive]}
+                      onPress={() => toggleActivite(a)}
                     >
-                      <Text style={[styles.chipTxt, activity === a && styles.chipTxtActive]}>
-                        {a}
-                      </Text>
+                      <Text style={[styles.chipTxt, activites.includes(a) && styles.chipTxtActive]}>{a}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
+                {errors.activites && <Text style={styles.errTxt}>{errors.activites}</Text>}
               </View>
             </>
           )}
@@ -104,15 +142,18 @@ export default function AuthScreen() {
             <Text style={styles.label}>MOT DE PASSE</Text>
             <View style={styles.pwdRow}>
               <TextInput
-                style={[styles.input, { flex: 1 }]}
+                style={[styles.input, { flex: 1 }, errors.mdp ? styles.inputErr : null]}
                 placeholder="••••••••"
                 secureTextEntry={!showPwd}
                 placeholderTextColor={Colors.mutedFg}
+                value={mdp}
+                onChangeText={setMdp}
               />
               <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPwd(v => !v)}>
                 <Feather name={showPwd ? 'eye-off' : 'eye'} size={18} color={Colors.mutedFg} />
               </TouchableOpacity>
             </View>
+            {errors.mdp && <Text style={styles.errTxt}>{errors.mdp}</Text>}
           </View>
 
           {tab === 'login' && (
@@ -121,14 +162,10 @@ export default function AuthScreen() {
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity
-            style={styles.cta}
-            onPress={() => router.replace('/(tabs)')}
-            activeOpacity={0.85}
-          >
+          <TouchableOpacity style={styles.cta} onPress={handleSubmit} activeOpacity={0.85} disabled={loading}>
             <LinearGradient colors={[Colors.primaryLight, Colors.primary]} style={styles.ctaGrad}>
               <Text style={styles.ctaTxt}>
-                {tab === 'login' ? 'Se connecter' : 'Créer mon compte'}
+                {loading ? '...' : tab === 'login' ? 'Se connecter' : 'Créer mon compte'}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -149,15 +186,22 @@ export default function AuthScreen() {
   );
 }
 
-function Field({ label, placeholder, icon }: { label: string; placeholder: string; icon?: string }) {
+function Field({
+  label, placeholder, icon, value, onChangeText, error,
+}: {
+  label: string; placeholder: string; icon?: string;
+  value: string; onChangeText: (t: string) => void; error?: string | null;
+}) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label.toUpperCase()}</Text>
       <View>
         <TextInput
-          style={styles.input}
+          style={[styles.input, error ? styles.inputErr : null]}
           placeholder={placeholder}
           placeholderTextColor={Colors.mutedFg}
+          value={value}
+          onChangeText={onChangeText}
         />
         {icon && (
           <View style={styles.inputIcon}>
@@ -165,23 +209,17 @@ function Field({ label, placeholder, icon }: { label: string; placeholder: strin
           </View>
         )}
       </View>
+      {error && <Text style={styles.errTxt}>{error}</Text>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header:     { paddingHorizontal: 24, paddingBottom: 24 },
-  backBtn: {
-    backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10,
-    padding: 8, alignSelf: 'flex-start', marginBottom: 16,
-  },
-  heading:    { fontSize: 28, fontWeight: '700', color: Colors.white, marginBottom: 4 },
-  subheading: { fontSize: 13, color: 'rgba(255,255,255,0.65)', fontWeight: '500', marginBottom: 20 },
-  tabs: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 12, padding: 4,
-  },
+  header:       { paddingHorizontal: 24, paddingBottom: 24 },
+  backBtn:      { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: 8, alignSelf: 'flex-start', marginBottom: 16 },
+  heading:      { fontSize: 28, fontWeight: '700', color: Colors.white, marginBottom: 4 },
+  subheading:   { fontSize: 13, color: 'rgba(255,255,255,0.65)', fontWeight: '500', marginBottom: 20 },
+  tabs:         { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 12, padding: 4 },
   tabBtn:       { flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: 'center' },
   tabBtnActive: { backgroundColor: Colors.white },
   tabTxt:       { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
@@ -195,36 +233,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 13,
     fontSize: 14, color: Colors.fg, fontWeight: '500',
   },
+  inputErr:     { borderColor: Colors.error },
+  errTxt:       { fontSize: 11, color: Colors.error, fontWeight: '600' },
+  globalErr:    { backgroundColor: '#FEE2E2', borderRadius: 10, padding: 12, fontSize: 13, color: Colors.error, fontWeight: '600' },
   phoneRow:     { flexDirection: 'row', gap: 8 },
-  prefix: {
-    backgroundColor: Colors.bg, borderWidth: 1.5, borderColor: Colors.border,
-    borderRadius: 12, paddingHorizontal: 14, justifyContent: 'center',
-  },
+  prefix:       { backgroundColor: Colors.bg, borderWidth: 1.5, borderColor: Colors.border, borderRadius: 12, paddingHorizontal: 14, justifyContent: 'center' },
   prefixTxt:    { fontSize: 13, fontWeight: '700', color: Colors.mutedFg },
   phoneInput:   { flex: 1 },
   pwdRow:       { flexDirection: 'row', alignItems: 'center' },
   eyeBtn:       { position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' },
   inputIcon:    { position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' },
   activityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    paddingHorizontal: 12, paddingVertical: 7,
-    borderRadius: 10, borderWidth: 1.5, borderColor: Colors.border,
-    backgroundColor: Colors.white,
-  },
-  chipActive:    { borderColor: Colors.primary, backgroundColor: `${Colors.primary}18` },
-  chipTxt:       { fontSize: 12, fontWeight: '600', color: Colors.mutedFg },
-  chipTxtActive: { color: Colors.primary, fontWeight: '700' },
-  forgot:        { fontSize: 13, color: Colors.primary, fontWeight: '700' },
-  cta:           { borderRadius: 14, overflow: 'hidden', marginTop: 4 },
-  ctaGrad:       { paddingVertical: 17, alignItems: 'center' },
-  ctaTxt:        { color: Colors.white, fontSize: 16, fontWeight: '800' },
-  divider:       { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  dividerLine:   { flex: 1, height: 1, backgroundColor: Colors.border },
-  dividerTxt:    { fontSize: 12, color: Colors.mutedFg, fontWeight: '600' },
-  whatsappBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: Colors.white, borderWidth: 1.5, borderColor: Colors.border,
-    borderRadius: 14, paddingVertical: 15,
-  },
-  whatsappTxt: { fontSize: 14, fontWeight: '700', color: Colors.fg },
+  chip:         { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.white },
+  chipActive:   { borderColor: Colors.primary, backgroundColor: `${Colors.primary}18` },
+  chipTxt:      { fontSize: 12, fontWeight: '600', color: Colors.mutedFg },
+  chipTxtActive:{ color: Colors.primary, fontWeight: '700' },
+  forgot:       { fontSize: 13, color: Colors.primary, fontWeight: '700' },
+  cta:          { borderRadius: 14, overflow: 'hidden', marginTop: 4 },
+  ctaGrad:      { paddingVertical: 17, alignItems: 'center' },
+  ctaTxt:       { color: Colors.white, fontSize: 16, fontWeight: '800' },
+  divider:      { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  dividerLine:  { flex: 1, height: 1, backgroundColor: Colors.border },
+  dividerTxt:   { fontSize: 12, color: Colors.mutedFg, fontWeight: '600' },
+  whatsappBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: Colors.white, borderWidth: 1.5, borderColor: Colors.border, borderRadius: 14, paddingVertical: 15 },
+  whatsappTxt:  { fontSize: 14, fontWeight: '700', color: Colors.fg },
 });
