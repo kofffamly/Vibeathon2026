@@ -1,25 +1,12 @@
-import type { Listing } from '@/data/mockData';
+export type { Listing, Profile, Order, OrderItem, Message, OrderStatus, PaymentMethod } from '@/lib/supabase';
 
-export type { Listing };
-
-export type CartItem = {
-  listing: Listing;
-  qty:     number;
-};
-
-export type Message = {
+export type ChatMessage = {
   id:   string;
   role: 'user' | 'assistant';
   text: string;
 };
 
-export type Order = {
-  id:          string;
-  title:       string;
-  counterpart: string;
-  qty:         string;
-  total:       string;
-  date:        string;
-  status:      'en_attente' | 'en_cours' | 'confirmee' | 'livree';
-  image?:      string;
+export type CartItem = {
+  listing: import('@/lib/supabase').Listing;
+  qty:     number;
 };

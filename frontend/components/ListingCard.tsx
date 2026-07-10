@@ -1,78 +1,80 @@
-import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
-import { Colors } from '@/constants/Colors';
-import type { Listing } from '@/data/mockData';
-
-const BADGE_COLORS: Record<string, string> = {
-  récoltes: '#D97706',
-  animaux:  '#7C3AED',
-  intrants: '#059669',
-  résidus:  '#0284C7',
-};
+import { Recolte, CATEGORY_EMOJI } from '../lib/supabase';
 
 interface Props {
-  listing: Listing;
+  recolte: Recolte;
   onPress: () => void;
+  badge?: 'POPULAIRE' | 'CERTIFIÉ';
 }
 
-export default function ListingCard({ listing, onPress }: Props) {
+const BADGE_COLORS: Record<string, string> = {
+  POPULAIRE: '#e67e22',
+  CERTIFIÉ: '#2d6a4f',
+};
+
+export default function ListingCard({ recolte, onPress, badge }: Props) {
+  const emoji = CATEGORY_EMOJI[recolte.type_produit?.toLowerCase()] ?? '📦';
+
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
-      <View style={styles.imageBox}>
-        <Image source={{ uri: listing.image }} style={styles.image} />
-        {listing.badge && (
-          <View style={[styles.badge, { backgroundColor: BADGE_COLORS[listing.category] }]}>
-            <Text style={styles.badgeText}>{listing.badge}</Text>
+    <TouchableOpacity style={s.card} onPress={onPress} activeOpacity={0.88}>
+      <View style={s.imageWrap}>
+        {recolte.photo_url ? (
+          <Image source={{ uri: recolte.photo_url }} style={s.image} />
+        ) : (
+          <View style={[s.image, s.placeholder]}>
+            <Text style={{ fontSize: 38 }}>{emoji}</Text>
+          </View>
+        )}
+        {badge && (
+          <View style={[s.badge, { backgroundColor: BADGE_COLORS[badge] }]}>
+            <Text style={s.badgeText}>{badge}</Text>
           </View>
         )}
       </View>
 
-      <View style={styles.info}>
-        <Text style={styles.title} numberOfLines={2}>{listing.title}</Text>
-
-        <Text style={styles.price}>
-          {listing.price}{' '}
-          <Text style={styles.unit}>{listing.unit}</Text>
-        </Text>
-
-        <View style={styles.footer}>
-          <Text style={styles.location}>📍 {listing.location}</Text>
-          <View style={styles.rating}>
-            <Text style={styles.star}>★</Text>
-            <Text style={styles.ratingText}>{listing.sellerRating}</Text>
-          </View>
+      <View style={s.body}>
+        <Text style={s.title} numberOfLines={2}>{recolte.type_produit}</Text>
+        <Text style={s.price}>{recolte.prix_fcfa_kg.toLocaleString()} FCFA/sac</Text>
+        <View style={s.footer}>
+          <Text style={s.zone} numberOfLines={1}>📍 {recolte.profiles?.zone ?? 'CI'}</Text>
+          {recolte.qualite_score != null && (
+            <View style={s.ratingWrap}>
+              <Text style={s.star}>⭐</Text>
+              <Text style={s.rating}>{recolte.qualite_score.toFixed(1)}</Text>
+            </View>
+          )}
         </View>
       </View>
     </TouchableOpacity>
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   card: {
     flex: 1,
-    backgroundColor: Colors.white,
-    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderRadius: 14,
     overflow: 'hidden',
-    shadowColor: Colors.fg,
-    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+    shadowColor: '#000',
     shadowOpacity: 0.07,
     shadowRadius: 8,
-    elevation: 3,
   },
-  imageBox: { height: 110, backgroundColor: Colors.muted, position: 'relative' },
-  image:    { width: '100%', height: '100%' },
+  imageWrap: { position: 'relative' },
+  image: { width: '100%', height: 110 },
+  placeholder: { backgroundColor: '#e8f5e9', alignItems: 'center', justifyContent: 'center' },
   badge: {
     position: 'absolute', top: 8, left: 8,
-    borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 6,
   },
-  badgeText:  { color: Colors.white, fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
-  info:       { padding: 10, paddingBottom: 12 },
-  title:      { fontSize: 13, fontWeight: '700', color: Colors.fg, lineHeight: 18, marginBottom: 4 },
-  price:      { fontSize: 14, fontWeight: '800', color: Colors.primary, marginBottom: 6 },
-  unit:       { fontSize: 11, fontWeight: '600', color: Colors.mutedFg },
-  footer:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  location:   { fontSize: 11, color: Colors.mutedFg, fontWeight: '500', flex: 1 },
-  rating:     { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  star:       { color: Colors.accent, fontSize: 12 },
-  ratingText: { fontSize: 11, fontWeight: '700', color: Colors.fg },
+  badgeText: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
+  body: { padding: 10 },
+  title: { fontSize: 13, fontWeight: '700', color: '#1a3a2a', marginBottom: 3, lineHeight: 18 },
+  price: { fontSize: 13, fontWeight: '800', color: '#2d6a4f', marginBottom: 6 },
+  footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  zone: { fontSize: 11, color: '#888', flex: 1 },
+  ratingWrap: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  star: { fontSize: 11 },
+  rating: { fontSize: 11, fontWeight: '700', color: '#555' },
 });

@@ -1,103 +1,80 @@
 import { create } from 'zustand';
+import { Session } from '@supabase/supabase-js';
+import { supabase, Profile } from '../lib/supabase';
 
-// ── Règles de validation ──────────────────────────────────────────
-
-export function validatePhone(tel: string): string | null {
-  const digits = tel.replace(/\s/g, '');
-  if (!digits) return 'Le numéro de téléphone est requis';
-  if (!/^\d+$/.test(digits)) return 'Le numéro ne doit contenir que des chiffres';
-  if (digits.length !== 10) return 'Le numéro doit contenir 10 chiffres';
-  if (!/^(01|05|07)/.test(digits)) return 'Numéro invalide (commence par 01, 05 ou 07)';
-  return null;
-}
-
-export function validatePassword(mdp: string): string | null {
-  if (!mdp) return 'Le mot de passe est requis';
-  if (mdp.length < 6) return 'Le mot de passe doit contenir au moins 6 caractères';
-  return null;
-}
-
-export function validateNom(nom: string): string | null {
-  if (!nom.trim()) return 'Le nom complet est requis';
-  if (nom.trim().length < 3) return 'Le nom doit contenir au moins 3 caractères';
-  return null;
-}
-
-export function validateLocalisation(loc: string): string | null {
-  if (!loc.trim()) return 'La localisation est requise';
-  return null;
-}
-
-export function validateActivites(activites: string[]): string | null {
-  if (activites.length === 0) return 'Sélectionnez au moins un type d\'activité';
-  return null;
-}
-
-export function validateLoginForm(tel: string, mdp: string) {
-  return {
-    tel: validatePhone(tel),
-    mdp: validatePassword(mdp),
-  };
-}
-
-export function validateRegisterForm(
-  nom: string,
-  tel: string,
-  localisation: string,
-  activites: string[],
-  mdp: string
-) {
-  return {
-    nom: validateNom(nom),
-    tel: validatePhone(tel),
-    localisation: validateLocalisation(localisation),
-    activites: validateActivites(activites),
-    mdp: validatePassword(mdp),
-  };
-}
-
-export function hasErrors(errors: Record<string, string | null>): boolean {
-  return Object.values(errors).some(e => e !== null);
-}
-
-// ── Store auth ────────────────────────────────────────────────────
-
-type AuthStore = {
-  isLoggedIn: boolean;
-  user: { nom: string; tel: string; role: string[] } | null;
-  login: (tel: string, mdp: string) => Promise<{ success: boolean; error?: string }>;
-  register: (data: {
-    nom: string; tel: string; localisation: string;
-    activites: string[]; mdp: string;
-  }) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
+const ROLE_MAP: Record<string, string> = {
+  'Agriculteur': 'agriculteur',
+  'Éleveur': 'eleveur',
+  'Fournisseur d\'intrants': 'fournisseur',
+  'Acheteur / Commerçant': 'acheteur',
+  'Agronome': 'acheteur',
+  'Autre': 'acheteur',
 };
 
-export const useAuthStore = create<AuthStore>((set) => ({
-  isLoggedIn: false,
-  user: null,
+interface AuthState {
+  session: Session | null;
+  profile: Profile | null;
+  init: () => void;
+  login: (email: string, password: string) => Promise<string | null>;
+  register: (email: string, password: string, name: string, phone?: string, zone?: string, roleLabel?: string) => Promise<string | null>;
+  updateProfile: (data: Partial<Profile>) => Promise<string | null>;
+  logout: () => void;
+}
 
-  login: async (tel, mdp) => {
-    const errors = validateLoginForm(tel, mdp);
-    if (hasErrors(errors)) {
-      return { success: false, error: 'Formulaire invalide' };
-    }
-    // Simulation appel API
-    await new Promise(r => setTimeout(r, 500));
-    set({ isLoggedIn: true, user: { nom: 'Amadou Koné', tel, role: ['Agriculteur'] } });
-    return { success: true };
+export const useAuthStore = create<AuthState>((set, get) => ({
+  session: null,
+  profile: null,
+
+  init: () => {
+    supabase.auth.getSession().then(({ data }) => {
+      set({ session: data.session });
+      if (data.session) get().fetchProfile(data.session.user.id);
+    });
+    supabase.auth.onAuthStateChange((_event, session) => {
+      set({ session });
+      if (session) get().fetchProfile(session.user.id);
+      else set({ profile: null });
+    });
   },
 
-  register: async ({ nom, tel, localisation, activites, mdp }) => {
-    const errors = validateRegisterForm(nom, tel, localisation, activites, mdp);
-    if (hasErrors(errors)) {
-      return { success: false, error: 'Formulaire invalide' };
-    }
-    // Simulation appel API
-    await new Promise(r => setTimeout(r, 500));
-    set({ isLoggedIn: true, user: { nom, tel, role: activites } });
-    return { success: true };
+  fetchProfile: async (id: string) => {
+    const { data } = await supabase.from('profiles').select('*').eq('uuid', id).single();
+    if (data) set({ profile: data });
   },
 
-  logout: () => set({ isLoggedIn: false, user: null }),
+  login: async (email, password) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return error?.message ?? null;
+  },
+
+  register: async (email, password, name, phone, zone, roleLabel) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { nom_complet: name } },
+    });
+    if (!error && data.user) {
+      await supabase.from('profiles').upsert({
+        uuid: data.user.id,
+        nom_complet: name || email.split('@')[0],
+        telephone: phone ?? null,
+        zone: zone ?? null,
+        role: (ROLE_MAP[roleLabel ?? ''] ?? 'acheteur') as Profile['role'],
+      }, { onConflict: 'uuid' });
+    }
+    return error?.message ?? null;
+  },
+
+  updateProfile: async (data) => {
+    const { session } = get();
+    if (!session) return 'Non connecté';
+    const { error } = await supabase.from('profiles').update(data).eq('uuid', session.user.id);
+    if (!error) set({ profile: { ...get().profile!, ...data } });
+    return error?.message ?? null;
+  },
+
+  logout: async () => {
+    await supabase.auth.signOut();
+    set({ session: null, profile: null });
+  },
 }));

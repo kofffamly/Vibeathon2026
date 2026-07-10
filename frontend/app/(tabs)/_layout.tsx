@@ -1,125 +1,123 @@
 import { Tabs } from 'expo-router';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useCartStore } from '@/store/cartStore';
+import { useRouter } from 'expo-router';
+import { useCartStore } from '../../store/cartStore';
 
-const ACTIVE = '#1B4332';
-const INACTIVE = '#9CA3AF';
-
-function PlusButton() {
+function TabIcon({ emoji, label, focused }: { emoji: string; label: string; focused: boolean }) {
   return (
-    <View style={styles.plusWrapper}>
-      <View style={styles.plusBtn}>
-        <Ionicons name="add" size={28} color="#fff" />
-      </View>
+    <View style={{ alignItems: 'center', paddingTop: 4 }}>
+      <Text style={{ fontSize: 20 }}>{emoji}</Text>
+      <Text style={[s.tabLabel, focused && s.tabLabelActive]}>{label}</Text>
     </View>
   );
 }
 
-function PanierIcon({ color }: { color: string }) {
-  const totalItems = useCartStore(s => s.totalItems);
-  const count = totalItems();
-  return (
-    <View>
-      <Ionicons name="cart-outline" size={24} color={color} />
-      {count > 0 && (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{count > 99 ? '99+' : count}</Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
-export default function TabLayout() {
+export default function TabsLayout() {
+  const totalItems = useCartStore(st => st.totalItems());
   const insets = useSafeAreaInsets();
-  const tabBarHeight = 60 + insets.bottom;
+  const router = useRouter();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: ACTIVE,
-        tabBarInactiveTintColor: INACTIVE,
         headerShown: false,
-        tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopWidth: 1,
-          borderTopColor: '#F3F4F6',
-          height: tabBarHeight,
-          paddingBottom: insets.bottom + 4,
-          paddingTop: 6,
-        },
-        tabBarLabelStyle: styles.tabLabel,
+        tabBarStyle: [s.tabBar, { height: 60 + insets.bottom, paddingBottom: insets.bottom }],
+        tabBarShowLabel: false,
+        tabBarActiveTintColor: '#2d6a4f',
       }}
     >
+      {/* Marché */}
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Marché',
-          tabBarIcon: ({ color }) => <Ionicons name="home-outline" size={24} color={color} />,
+          tabBarIcon: ({ focused }) => <TabIcon emoji="🏪" label="Marché" focused={focused} />,
         }}
       />
+
+      {/* Panier — tab qui ouvre cart.tsx via navigation */}
       <Tabs.Screen
         name="marketplace"
         options={{
-          title: 'Publier',
-          tabBarIcon: () => <PlusButton />,
-          tabBarLabel: () => null,
+          tabBarIcon: ({ focused }) => (
+            <TouchableOpacity
+              style={{ alignItems: 'center', paddingTop: 4 }}
+              onPress={() => router.push('/cart')}
+              activeOpacity={0.7}
+            >
+              <View style={{ position: 'relative' }}>
+                <Text style={{ fontSize: 20 }}>🛒</Text>
+                {totalItems > 0 && (
+                  <View style={s.badge}>
+                    <Text style={s.badgeText}>{totalItems > 9 ? '9+' : totalItems}</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={[s.tabLabel, focused && s.tabLabelActive]}>Panier</Text>
+            </TouchableOpacity>
+          ),
+          tabBarButton: (props) => (
+            <TouchableOpacity
+              {...(props as any)}
+              onPress={() => router.push('/cart')}
+              style={props.style}
+            />
+          ),
         }}
       />
+
+      {/* Bouton publier central */}
+      <Tabs.Screen
+        name="publish"
+        options={{
+          tabBarIcon: () => (
+            <View style={s.publishBtn}>
+              <Text style={{ color: '#fff', fontSize: 28, lineHeight: 32, fontWeight: '300' }}>+</Text>
+            </View>
+          ),
+        }}
+      />
+
+      {/* Commandes */}
       <Tabs.Screen
         name="orders"
         options={{
-          title: 'Commandes',
-          tabBarIcon: ({ color }) => <Ionicons name="receipt-outline" size={24} color={color} />,
+          tabBarIcon: ({ focused }) => <TabIcon emoji="📦" label="Commandes" focused={focused} />,
         }}
       />
+
+      {/* Profil */}
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profil',
-          tabBarIcon: ({ color }) => <Ionicons name="person-outline" size={24} color={color} />,
+          tabBarIcon: ({ focused }) => <TabIcon emoji="👤" label="Profil" focused={focused} />,
         }}
       />
     </Tabs>
   );
 }
 
-const styles = StyleSheet.create({
-  tabLabel: {
-    fontSize: 11,
-    fontWeight: '500',
+const s = StyleSheet.create({
+  tabBar: {
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e8e0d0',
   },
-  plusWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  plusBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#1B4332',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#1B4332',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 6,
+  tabLabel: { fontSize: 10, color: '#aaa', marginTop: 2 },
+  tabLabelActive: { color: '#2d6a4f', fontWeight: '700' },
+  publishBtn: {
+    width: 54, height: 54, borderRadius: 27,
+    backgroundColor: '#2d6a4f',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: '#2d6a4f', shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
   },
   badge: {
-    position: 'absolute',
-    top: -2,
-    right: -4,
-    backgroundColor: '#EF4444',
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: 'absolute', top: -4, right: -6,
+    minWidth: 16, height: 16, borderRadius: 8,
+    backgroundColor: '#e53e3e',
+    alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 3,
   },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+  badgeText: { color: '#fff', fontSize: 9, fontWeight: '700' },
 });

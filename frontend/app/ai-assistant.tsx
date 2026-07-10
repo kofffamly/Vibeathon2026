@@ -1,211 +1,202 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
-  StyleSheet, KeyboardAvoidingView, Platform,
+  StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Colors } from '@/constants/Colors';
-import { AI_SUGGESTIONS, getAIResponse } from '@/data/mockData';
-import ChatBubble from '@/components/ChatBubble';
-import type { Message } from '@/constants/index';
 
-const INITIAL: Message[] = [
-  {
-    id: '0', role: 'assistant',
-    text: "Bonjour ! Je suis votre assistant agricole. Posez-moi une question sur vos cultures, votre élevage ou la gestion de votre exploitation. 🌱",
-  },
+type Msg = { id: string; role: 'user' | 'assistant'; text: string };
+
+const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY!;
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+
+const SYSTEM_PROMPT = `Tu es un assistant agricole expert pour les agriculteurs de Côte d'Ivoire.
+Tu réponds en français, de façon concise et pratique.
+Tu connais les cultures locales (maïs, manioc, cacao, café, tomate, igname, banane, coton),
+l'élevage (volaille, bovin, porcin), les prix du marché en FCFA, les saisons agricoles ivoiriennes,
+les engrais, les maladies des plantes et les bonnes pratiques agricoles.
+Si la question n'est pas liée à l'agriculture, réponds poliment que tu es spécialisé en agriculture.`;
+
+const SUGGESTIONS = [
+  'Prix des tomates ?',
+  'Comment cultiver le manioc ?',
+  'Conseils engrais NPK',
+  'Calendrier agricole CI',
 ];
 
-export default function AIAssistantScreen() {
-  const router   = useRouter();
-  const insets   = useSafeAreaInsets();
-  const listRef  = useRef<FlatList>(null);
+async function askGroq(history: Msg[], userText: string): Promise<string> {
+  const messages = [
+    { role: 'system', content: SYSTEM_PROMPT },
+    ...history.map(m => ({ role: m.role, content: m.text })),
+    { role: 'user', content: userText },
+  ];
 
-  const [messages, setMessages] = useState<Message[]>(INITIAL);
-  const [input,    setInput]    = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const res = await fetch(GROQ_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'llama-3.1-8b-instant',
+      messages,
+      max_tokens: 512,
+      temperature: 0.7,
+    }),
+  });
 
-  const send = (text: string) => {
-    if (!text.trim() || isTyping) return;
-    const userMsg: Message = { id: Date.now().toString(), role: 'user', text: text.trim() };
-    setMessages(prev => [...prev, userMsg]);
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err?.error?.message ?? 'Erreur API Groq');
+  }
+
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content ?? 'Pas de réponse.';
+}
+
+export default function AIAssistant() {
+  const router = useRouter();
+  const [messages, setMessages] = useState<Msg[]>([
+    { id: '0', role: 'assistant', text: '👋 Bonjour ! Je suis votre assistant agricole IA. Posez-moi vos questions sur les cultures, l\'élevage ou les prix en Côte d\'Ivoire.' },
+  ]);
+  const [input, setInput] = useState('');
+  const [typing, setTyping] = useState(false);
+  const listRef = useRef<FlatList>(null);
+
+  const send = async (text: string) => {
+    if (!text.trim() || typing) return;
+    const userMsg: Msg = { id: Date.now().toString(), role: 'user', text: text.trim() };
+    const updatedHistory = [...messages, userMsg];
+    setMessages(updatedHistory);
     setInput('');
-    setIsTyping(true);
-    setTimeout(() => {
-      setIsTyping(false);
-      const aiMsg: Message = { id: (Date.now() + 1).toString(), role: 'assistant', text: getAIResponse(text) };
-      setMessages(prev => [...prev, aiMsg]);
-    }, 1400);
+    setTyping(true);
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+
+    try {
+      const answer = await askGroq(messages, text.trim());
+      setMessages(prev => [...prev, { id: Date.now().toString() + 'a', role: 'assistant', text: answer }]);
+    } catch (e: any) {
+      setMessages(prev => [...prev, {
+        id: Date.now().toString() + 'e',
+        role: 'assistant',
+        text: `❌ Erreur : ${e.message}. Vérifiez votre clé API Groq.`,
+      }]);
+    } finally {
+      setTyping(false);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    }
   };
 
-  useEffect(() => {
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-  }, [messages, isTyping]);
-
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={insets.bottom}
-    >
-      <View style={{ flex: 1, backgroundColor: Colors.bg }}>
+    <SafeAreaView style={s.container} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        {/* Header */}
+        <View style={s.header}>
+          <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+            <Text style={s.backText}>←</Text>
+          </TouchableOpacity>
+          <View style={s.headerCenter}>
+            <Text style={s.title}>🤖 Assistant Agricole</Text>
+            <Text style={s.subtitle}>Propulsé par Groq · Llama 3.1</Text>
+          </View>
+        </View>
 
-        {/* ── Header ── */}
-        <LinearGradient colors={[Colors.primaryDark, Colors.primary]} style={styles.header}>
-          <SafeAreaView edges={['top']}>
-            <View style={styles.headerRow}>
-              <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-                <Feather name="arrow-left" size={18} color={Colors.white} />
-              </TouchableOpacity>
-              <View style={styles.agentInfo}>
-                <View style={styles.agentIcon}>
-                  <Text style={{ fontSize: 18 }}>🤖</Text>
-                </View>
-                <View>
-                  <Text style={styles.agentName}>Assistant AgroIA</Text>
-                  <View style={styles.statusRow}>
-                    <View style={styles.statusDot} />
-                    <Text style={styles.statusTxt}>En ligne · Répond instantanément</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </SafeAreaView>
-        </LinearGradient>
-
-        {/* ── Messages ── */}
+        {/* Messages */}
         <FlatList
           ref={listRef}
           data={messages}
-          keyExtractor={m => m.id}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          ListHeaderComponent={
-            messages.length === 1 ? (
-              <View style={styles.suggestions}>
-                <Text style={styles.suggestionsTitle}>Questions fréquentes</Text>
-                {AI_SUGGESTIONS.map(s => (
-                  <TouchableOpacity key={s} style={styles.suggestionBtn} onPress={() => send(s)}>
-                    <Text style={{ fontSize: 16 }}>💡</Text>
-                    <Text style={styles.suggestionTxt}>{s}</Text>
-                    <Feather name="chevron-right" size={14} color={Colors.mutedFg} />
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : null
-          }
+          keyExtractor={i => i.id}
+          contentContainerStyle={{ padding: 16, gap: 10 }}
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
           renderItem={({ item }) => (
-            <ChatBubble role={item.role} text={item.text} />
+            <View style={[s.bubble, item.role === 'user' ? s.userBubble : s.aiBubble]}>
+              <Text style={[s.bubbleText, item.role === 'user' && { color: '#fff' }]}>
+                {item.text}
+              </Text>
+            </View>
           )}
           ListFooterComponent={
-            isTyping ? (
-              <View style={styles.typingRow}>
-                <View style={styles.typingAvatar}>
-                  <Text style={{ fontSize: 14 }}>🤖</Text>
-                </View>
-                <View style={styles.typingBubble}>
-                  {[0, 1, 2].map(i => (
-                    <View key={i} style={[styles.dot, { opacity: 0.4 + i * 0.2 }]} />
-                  ))}
-                </View>
+            typing ? (
+              <View style={[s.bubble, s.aiBubble, { paddingVertical: 14 }]}>
+                <ActivityIndicator color="#2d6a4f" size="small" />
               </View>
             ) : null
           }
         />
 
-        {/* ── Input ── */}
-        <View style={[styles.inputBar, { paddingBottom: insets.bottom + 8 }]}>
-          <Text style={styles.inputHint}>💡 Posez votre question agricole</Text>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.input}
-              placeholder="Ex: Quel engrais pour le maïs ?"
-              placeholderTextColor={Colors.mutedFg}
-              value={input}
-              onChangeText={setInput}
-              onSubmitEditing={() => send(input)}
-              returnKeyType="send"
-            />
-            <TouchableOpacity
-              style={[styles.sendBtn, (!input.trim() || isTyping) && styles.sendBtnDisabled]}
-              onPress={() => send(input)}
-              disabled={!input.trim() || isTyping}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={input.trim() && !isTyping ? [Colors.primaryLight, Colors.primary] : [Colors.muted, Colors.muted]}
-                style={styles.sendGrad}
-              >
-                <Feather name="send" size={18} color={input.trim() && !isTyping ? Colors.white : Colors.mutedFg} />
-              </LinearGradient>
+        {/* Suggestions */}
+        <View style={s.suggestions}>
+          {SUGGESTIONS.map(sg => (
+            <TouchableOpacity key={sg} style={s.suggChip} onPress={() => send(sg)}>
+              <Text style={s.suggText}>{sg}</Text>
             </TouchableOpacity>
-          </View>
+          ))}
         </View>
-      </View>
-    </KeyboardAvoidingView>
+
+        {/* Input */}
+        <View style={s.inputRow}>
+          <TextInput
+            style={s.input}
+            style={s.input}
+            value={input}
+            onChangeText={setInput}
+            placeholder="Posez votre question..."
+            placeholderTextColor="#aaa"
+            onSubmitEditing={() => send(input)}
+            returnKeyType="send"
+            editable={!typing}
+          />
+          <TouchableOpacity style={[s.sendBtn, typing && { opacity: 0.5 }]} onPress={() => send(input)} disabled={typing}>
+            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 18 }}>↑</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  header:    { paddingHorizontal: 20, paddingBottom: 18 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  backBtn:   { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: 8 },
-  agentInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  agentIcon: {
-    width: 42, height: 42, borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  agentName:  { fontSize: 16, fontWeight: '800', color: Colors.white },
-  statusRow:  { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
-  statusDot:  { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#4ADE80' },
-  statusTxt:  { fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
-  list:       { padding: 16, paddingBottom: 24 },
-  suggestions:{ marginBottom: 16 },
-  suggestionsTitle: {
-    fontSize: 12, fontWeight: '700', color: Colors.mutedFg,
-    textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 8,
-  },
-  suggestionBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: Colors.white, borderRadius: 12,
-    borderWidth: 1.5, borderColor: Colors.border,
-    paddingHorizontal: 14, paddingVertical: 11, marginBottom: 6,
-    shadowColor: Colors.fg, shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
-  },
-  suggestionTxt: { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.fg },
-  typingRow:    { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 12 },
-  typingAvatar: {
-    width: 30, height: 30, borderRadius: 10,
-    backgroundColor: Colors.primary,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  typingBubble: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: Colors.white, borderRadius: 18,
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f7f5f0' },
+
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 16, paddingVertical: 12,
-    shadowColor: Colors.fg, shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
+    backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#e8e0d0',
   },
-  dot:         { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
-  inputBar: {
-    backgroundColor: Colors.white,
-    borderTopWidth: 1, borderTopColor: Colors.border,
-    paddingHorizontal: 16, paddingTop: 10,
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#f0fdf4', alignItems: 'center', justifyContent: 'center' },
+  backText: { fontSize: 18, color: '#2d6a4f', fontWeight: '700' },
+  headerCenter: { flex: 1 },
+  title: { fontSize: 16, fontWeight: '800', color: '#1a3a2a' },
+  subtitle: { fontSize: 11, color: '#aaa' },
+
+  bubble: { maxWidth: '82%', padding: 12, borderRadius: 18 },
+  userBubble: { backgroundColor: '#2d6a4f', alignSelf: 'flex-end', borderBottomRightRadius: 4 },
+  aiBubble: {
+    backgroundColor: '#fff', alignSelf: 'flex-start', borderBottomLeftRadius: 4,
+    borderWidth: 1, borderColor: '#e8e0d0',
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
   },
-  inputHint:       { fontSize: 11, color: Colors.mutedFg, fontWeight: '600', textAlign: 'center', marginBottom: 8 },
-  inputRow:        { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  bubbleText: { fontSize: 14, color: '#1a3a2a', lineHeight: 21 },
+
+  suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  suggChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: '#e8f5e9', borderWidth: 1, borderColor: '#b7dfc4' },
+  suggText: { fontSize: 12, color: '#2d6a4f', fontWeight: '600' },
+
+  inputRow: {
+    flexDirection: 'row', padding: 12, gap: 8,
+    backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#e8e0d0',
+  },
   input: {
-    flex: 1, backgroundColor: Colors.bg,
-    borderWidth: 1.5, borderColor: Colors.border, borderRadius: 14,
-    paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: 13, color: Colors.fg, fontWeight: '500',
+    flex: 1, backgroundColor: '#f7f5f0', borderRadius: 24,
+    paddingHorizontal: 16, paddingVertical: 10, fontSize: 14, color: '#1a3a2a',
+    borderWidth: 1, borderColor: '#e0dbd0',
   },
-  sendBtn:         { borderRadius: 14, overflow: 'hidden' },
-  sendBtnDisabled: { opacity: 0.7 },
-  sendGrad:        { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  sendBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: '#2d6a4f', alignItems: 'center', justifyContent: 'center',
+  },
 });
