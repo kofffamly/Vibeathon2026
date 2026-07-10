@@ -1,0 +1,27 @@
+# Dépendances
+node_modules/
+.pnp
+.pnp.js
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Build natif
+android/
+ios/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Environnement
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
