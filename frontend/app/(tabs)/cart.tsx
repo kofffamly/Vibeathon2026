@@ -7,16 +7,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
-import { useCart } from '@/context/CartContext';
+import { useCartStore } from '@/store/cartStore';
 
 export default function CartScreen() {
   const router = useRouter();
-  const { cartItems, updateQty, clearCart } = useCart();
+  const items      = useCartStore(s => s.items);
+  const updateQty  = useCartStore(s => s.updateQty);
+  const clearCart  = useCartStore(s => s.clearCart);
+  const total      = useCartStore(s => s.total)();
+  const totalItems = useCartStore(s => s.totalItems)();
   const [confirmed, setConfirmed] = useState(false);
-
-  const total = cartItems.reduce((sum, item) => {
-    return sum + parseInt(item.listing.price.replace(/\s/g, ''), 10) * item.qty;
-  }, 0);
+  const cartItems = items;
 
   if (confirmed) {
     return (
@@ -44,7 +45,7 @@ export default function CartScreen() {
         <View>
           <Text style={styles.headerTitle}>Mon panier</Text>
           <Text style={styles.headerSub}>
-            {cartItems.length === 0 ? 'Vide' : `${cartItems.reduce((s, i) => s + i.qty, 0)} article(s)`}
+            {cartItems.length === 0 ? 'Vide' : `${totalItems} article(s)`}
           </Text>
         </View>
         {cartItems.length > 0 && (
@@ -65,7 +66,7 @@ export default function CartScreen() {
         ) : (
           <>
             {cartItems.map(item => {
-              const price = parseInt(item.listing.price.replace(/\s/g, ''), 10);
+              const price = parseInt(item.listing.price.replace(/\s/g, ''), 10) || 0;
               return (
                 <View key={item.listing.id} style={styles.item}>
                   <Image source={{ uri: item.listing.image }} style={styles.itemImg} />
@@ -137,9 +138,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingVertical: 16,
   },
-  headerTitle:  { fontSize: 22, fontWeight: '800', color: Colors.fg },
-  headerSub:    { fontSize: 12, color: Colors.mutedFg, marginTop: 2 },
-  headerTotal:  { fontSize: 16, fontWeight: '800', color: Colors.primary },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: Colors.fg },
+  headerSub:   { fontSize: 12, color: Colors.mutedFg, marginTop: 2 },
+  headerTotal: { fontSize: 16, fontWeight: '800', color: Colors.primary },
 
   empty:      { alignItems: 'center', paddingTop: 60 },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: Colors.fg, marginBottom: 8 },
