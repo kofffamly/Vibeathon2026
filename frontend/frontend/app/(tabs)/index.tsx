@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   TextInput, StyleSheet, SafeAreaView,
@@ -8,11 +8,7 @@ import { useCartStore } from '@/store/cartStore';
 
 const FILTRES = ['Tout', 'Récoltes', 'Animaux', 'Intrants', 'Services'];
 
-const ANNONCES: {
-  id: string; titre: string; prix: string;
-  localisation: string; note: number; badge: string | null;
-  emoji: string; bg: string;
-}[] = [
+const ANNONCES = [
   {
     id: '1', titre: 'Maïs local — récolte 2024', prix: '1 200 FCFA/sac',
     localisation: 'Korhogo', note: 4.8, badge: 'POPULAIRE', emoji: '🌽', bg: '#D4A853',
@@ -33,8 +29,8 @@ const ANNONCES: {
 
 export default function Marche() {
   const totalItems = useCartStore(s => s.totalItems);
-  const [filtre, setFiltre] = useState('Tout');
-  const [search, setSearch] = useState('');
+  const [filtre, setFiltre] = require('react').useState('Tout');
+  const [search, setSearch] = require('react').useState('');
 
   return (
     <SafeAreaView style={styles.root}>
@@ -143,6 +139,7 @@ export default function Marche() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#FAF7F0' },
 
+  /* Header */
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 12 },
   headerLeft: {},
   locRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
@@ -151,10 +148,12 @@ const styles = StyleSheet.create({
   headerIcons: { flexDirection: 'row', gap: 8 },
   iconBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#F3F4F6' },
 
+  /* Recherche */
   searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, marginHorizontal: 20, marginBottom: 14, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: '#F3F4F6' },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, fontSize: 14, color: '#1A1A1A' },
 
+  /* Filtres */
   filtresScroll: { marginBottom: 16 },
   filtresContent: { paddingHorizontal: 20, gap: 8 },
   filtre: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, backgroundColor: '#fff' },
@@ -162,6 +161,7 @@ const styles = StyleSheet.create({
   filtreText: { fontSize: 13, color: '#1B4332', fontWeight: '500' },
   filtreTextActive: { color: '#fff', fontWeight: '700' },
 
+  /* Offre du jour */
   offreCard: {
     marginHorizontal: 20, marginBottom: 20,
     backgroundColor: '#1B4332',
@@ -177,10 +177,12 @@ const styles = StyleSheet.create({
   offreBtnText: { color: '#1B4332', fontWeight: '700', fontSize: 13 },
   offreEmoji: { position: 'absolute', right: 16, bottom: 12, fontSize: 64 },
 
+  /* Section */
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1A' },
   voirTout: { fontSize: 13, color: '#1B4332', fontWeight: '600' },
 
+  /* Grille 2 colonnes */
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20, gap: 12 },
   card: { width: '47%', backgroundColor: '#fff', borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#F3F4F6' },
   cardImg: { height: 100, alignItems: 'center', justifyContent: 'center' },

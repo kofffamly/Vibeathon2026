@@ -61,22 +61,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="marketplace"
+        name="panier"
         options={{
-          title: 'Publier',
-          tabBarIcon: () => <PlusButton />,
-          tabBarLabel: () => null,
+          title: 'Panier',
         }}
       />
       <Tabs.Screen
-        name="orders"
+        name="commandes"
         options={{
           title: 'Commandes',
           tabBarIcon: ({ color }) => <Ionicons name="receipt-outline" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="profil"
         options={{
           title: 'Profil',
           tabBarIcon: ({ color }) => <Ionicons name="person-outline" size={24} color={color} />,

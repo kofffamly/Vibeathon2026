@@ -1,30 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { BUYER_ORDERS, SELLER_ORDERS } from '@/data/mockData';
 import OrderCard from '@/components/OrderCard';
-import { useCartStore } from '@/store/cartStore';
 
 export default function OrdersScreen() {
-  const router     = useRouter();
   const [tab, setTab] = useState<'achats' | 'ventes'>('achats');
-
-  // Commandes issues du panier validé
-  const cartItems = useCartStore(s => s.items);
-  const cartOrders = cartItems.map(item => ({
-    id:          `cart-${item.listing.id}`,
-    title:       item.listing.title,
-    counterpart: 'Vendeur vérifié',
-    qty:         `${item.qty} unité(s)`,
-    total:       `${(parseInt(item.listing.price.replace(/\s/g, ''), 10) * item.qty).toLocaleString('fr-FR')} FCFA`,
-    date:        new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
-    status:      'en_attente' as const,
-    image:       item.listing.image,
-  }));
-
-  const orders = tab === 'achats' ? [...cartOrders, ...BUYER_ORDERS] : SELLER_ORDERS;
+  const orders = tab === 'achats' ? BUYER_ORDERS : SELLER_ORDERS;
 
   const stats = [
     { label: 'Total',    value: orders.length.toString(),                                                                    color: Colors.primary },

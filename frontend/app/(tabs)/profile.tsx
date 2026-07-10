@@ -8,7 +8,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
-import { useAuthStore } from '@/store/authStore';
 
 type MenuItem = {
   icon:    string;
@@ -38,14 +37,8 @@ const MY_LISTINGS = [
 ];
 
 export default function ProfileScreen() {
-  const router  = useRouter();
-  const user    = useAuthStore(s => s.user);
-  const logout  = useAuthStore(s => s.logout);
+  const router = useRouter();
   const [editMode, setEditMode] = useState(false);
-
-  const displayName = user?.nom ?? 'Amadou Koné';
-  const initials    = displayName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
-  const roleLabel   = user?.role?.join(' · ') ?? 'Agriculteur · Éleveur';
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.bg }}>
@@ -62,11 +55,11 @@ export default function ProfileScreen() {
 
           <View style={styles.avatarRow}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarTxt}>{initials}</Text>
+              <Text style={styles.avatarTxt}>AK</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.name}>{displayName}</Text>
-              <Text style={styles.role}>{roleLabel}</Text>
+              <Text style={styles.name}>Amadou Koné</Text>
+              <Text style={styles.role}>Agriculteur · Éleveur</Text>
               <View style={styles.locRow}>
                 <Feather name="map-pin" size={12} color="rgba(255,255,255,0.7)" />
                 <Text style={styles.locTxt}>Bouaké, Côte d'Ivoire</Text>
@@ -126,10 +119,7 @@ export default function ProfileScreen() {
             <View key={item.label}>
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => {
-                  if (item.danger) { logout(); router.replace('/auth/login'); }
-                  else if (item.route) router.push(item.route as any);
-                }}
+                onPress={() => item.route && router.push(item.route as any)}
               >
                 <View style={[styles.menuIcon, item.danger && styles.menuIconDanger]}>
                   <Text style={{ fontSize: 18 }}>{item.icon}</Text>
