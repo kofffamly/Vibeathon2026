@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  Image, StyleSheet,
+  StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,43 +9,67 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { useAuthStore } from '@/store/authStore';
-
-type MenuItem = {
-  icon:    string;
-  label:   string;
-  sub:     string;
-  route?:  string;
-  danger?: boolean;
-};
-
-const MENU: MenuItem[] = [
-  { icon: '📝', label: 'Mes annonces',   sub: '2 actives' },
-  { icon: '📦', label: 'Mes commandes',  sub: 'Achats & ventes',      route: '/(tabs)/orders' },
-  { icon: '⭐', label: 'Mes avis',        sub: '4.8 · 23 avis' },
-  { icon: '🤖', label: 'Assistant IA',   sub: 'Conseils agricoles',   route: '/ai-assistant' },
-  { icon: '🔔', label: 'Notifications',  sub: '3 non lues' },
-  { icon: '📍', label: 'Localisation',   sub: "Bouaké, Côte d'Ivoire" },
-  { icon: '🔒', label: 'Sécurité',       sub: 'Mot de passe, 2FA' },
-  { icon: '❓', label: 'Aide & Support', sub: 'FAQ, contact' },
-  { icon: '🚪', label: 'Déconnexion',    sub: '', route: '/auth/login', danger: true },
-];
-
-const MY_LISTINGS = [
-  {
-    id: '1', title: 'Maïs local – récolte 2024', price: '1 200 FCFA/sac', views: 42,
-    image: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=120&h=90&fit=crop&auto=format',
-  },
-];
+import { apiClient } from '@/api/client';
 
 export default function ProfileScreen() {
-  const router  = useRouter();
-  const user    = useAuthStore(s => s.user);
-  const logout  = useAuthStore(s => s.logout);
+  const router   = useRouter();
+  const user     = useAuthStore(s => s.user);
+  const logout   = useAuthStore(s => s.logout);
   const [editMode, setEditMode] = useState(false);
 
-  const displayName = user?.nom ?? 'Amadou Koné';
-  const initials    = displayName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
-  const roleLabel   = user?.role?.join(' · ') ?? 'Agriculteur · Éleveur';
+  // Dynamic data from backend
+  const [myListings, setMyListings] = useState<any[]>([]);
+  const [myOrders,   setMyOrders]   = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState(false);
+
+  useEffect(() => {
+    fetchUserData();
+  }, [user]);
+
+  const fetchUserData = async () => {
+    if (!user) return;
+    setLoadingData(true);
+    try {
+      const [products, orders] = await Promise.allSettled([
+        apiClient('/products'),
+        apiClient('/orders'),
+      ]);
+
+      if (products.status === 'fulfilled') {
+        // Only keep products belonging to the current user
+        const mine = products.value.filter((p: any) => p.sellerId === user.id);
+        setMyListings(mine);
+      }
+      if (orders.status === 'fulfilled') {
+        setMyOrders(orders.value);
+      }
+    } catch (e) {
+      // silently fail — user might not be authenticated yet
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const displayName  = user?.nom ?? 'Visiteur';
+  const initials     = displayName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+  const roleLabel    = (user?.activites ?? user?.role)?.join(' · ') ?? 'Non défini';
+  const localisation = user?.localisation ?? 'Localisation non définie';
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/auth/login');
+  };
+
+  const MENU = [
+    { icon: '📦', label: 'Mes commandes',  sub: `${myOrders.length} commande(s)`,      route: '/(tabs)/orders' },
+    { icon: '⭐', label: 'Mes avis',        sub: '4.8 · 23 avis' },
+    { icon: '🤖', label: 'Assistant IA',   sub: 'Conseils agricoles',   route: '/ai-assistant' },
+    { icon: '🔔', label: 'Notifications',  sub: '3 non lues' },
+    { icon: '📍', label: 'Localisation',   sub: localisation },
+    { icon: '🔒', label: 'Sécurité',       sub: 'Mot de passe, 2FA' },
+    { icon: '❓', label: 'Aide & Support', sub: 'FAQ, contact' },
+    { icon: '🚪', label: 'Déconnexion',    sub: '', danger: true },
+  ];
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.bg }}>
@@ -69,8 +93,14 @@ export default function ProfileScreen() {
               <Text style={styles.role}>{roleLabel}</Text>
               <View style={styles.locRow}>
                 <Feather name="map-pin" size={12} color="rgba(255,255,255,0.7)" />
-                <Text style={styles.locTxt}>Bouaké, Côte d'Ivoire</Text>
+                <Text style={styles.locTxt}>{localisation}</Text>
               </View>
+              {user?.tel && (
+                <View style={styles.locRow}>
+                  <Feather name="phone" size={12} color="rgba(255,255,255,0.7)" />
+                  <Text style={styles.locTxt}>{user.tel}</Text>
+                </View>
+              )}
             </View>
           </View>
         </SafeAreaView>
@@ -79,10 +109,10 @@ export default function ProfileScreen() {
       {/* ── Stats card ── */}
       <View style={styles.statsCard}>
         {[
-          { value: '12',    label: 'Annonces', icon: '📢' },
-          { value: '48',    label: 'Ventes',   icon: '💰' },
-          { value: '4.8★',  label: 'Note',     icon: '⭐' },
-          { value: '2 ans', label: 'Membre',   icon: '🏅' },
+          { value: myListings.length.toString(),  label: 'Annonces', icon: '📢' },
+          { value: myOrders.length.toString(),    label: 'Commandes', icon: '📦' },
+          { value: '4.8★',                        label: 'Note',     icon: '⭐' },
+          { value: user ? 'Actif' : 'Invité',     label: 'Statut',   icon: '🏅' },
         ].map((s, i) => (
           <View key={s.label} style={[styles.statItem, i < 3 && styles.statBorder]}>
             <Text style={{ fontSize: 10, marginBottom: 3 }}>{s.icon}</Text>
@@ -94,30 +124,47 @@ export default function ProfileScreen() {
 
       <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }}>
 
-        {/* ── My listings ── */}
+        {/* ── Mes annonces ── */}
         <View>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Mes annonces</Text>
-            <Text style={styles.seeAll}>Voir tout →</Text>
+            <Text style={styles.seeAll}>
+              {loadingData ? '...' : `${myListings.length} active(s)`}
+            </Text>
           </View>
-          {MY_LISTINGS.map(l => (
-            <View key={l.id} style={styles.listingRow}>
-              <Image source={{ uri: l.image }} style={styles.listingImg} />
-              <View style={styles.listingBody}>
-                <Text style={styles.listingTitle} numberOfLines={1}>{l.title}</Text>
-                <Text style={styles.listingPrice}>{l.price}</Text>
-                <Text style={styles.listingViews}>👁 {l.views} vues</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                <View style={styles.activeBadge}>
-                  <Text style={styles.activeBadgeTxt}>Actif</Text>
-                </View>
-                <TouchableOpacity style={styles.manageBtn}>
-                  <Text style={styles.manageBtnTxt}>Gérer</Text>
-                </TouchableOpacity>
-              </View>
+
+          {loadingData ? (
+            <ActivityIndicator color={Colors.primary} style={{ marginVertical: 12 }} />
+          ) : myListings.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyIcon}>📋</Text>
+              <Text style={styles.emptyText}>Aucune annonce publiée</Text>
+              <TouchableOpacity
+                style={styles.publishBtn}
+                onPress={() => router.push('/(tabs)/publish' as any)}
+              >
+                <Text style={styles.publishBtnTxt}>+ Publier une annonce</Text>
+              </TouchableOpacity>
             </View>
-          ))}
+          ) : (
+            myListings.map(l => (
+              <View key={l.id} style={styles.listingRow}>
+                <View style={[styles.listingEmoji, { backgroundColor: Colors.muted }]}>
+                  <Text style={{ fontSize: 28 }}>{l.emoji || '🌾'}</Text>
+                </View>
+                <View style={styles.listingBody}>
+                  <Text style={styles.listingTitle} numberOfLines={1}>{l.titre}</Text>
+                  <Text style={styles.listingPrice}>{l.prixUnit?.toLocaleString('fr-FR')} FCFA</Text>
+                  <Text style={styles.listingViews}>📍 {l.localisation}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                  <View style={styles.activeBadge}>
+                    <Text style={styles.activeBadgeTxt}>Actif</Text>
+                  </View>
+                </View>
+              </View>
+            ))
+          )}
         </View>
 
         {/* ── Menu ── */}
@@ -127,8 +174,8 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {
-                  if (item.danger) { logout(); router.replace('/auth/login'); }
-                  else if (item.route) router.push(item.route as any);
+                  if (item.danger) { handleLogout(); }
+                  else if ((item as any).route) router.push((item as any).route as any);
                 }}
               >
                 <View style={[styles.menuIcon, item.danger && styles.menuIconDanger]}>
@@ -188,21 +235,24 @@ const styles = StyleSheet.create({
   sectionHeader:  { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   sectionTitle:   { fontSize: 15, fontWeight: '800', color: Colors.fg },
   seeAll:         { fontSize: 12, color: Colors.primary, fontWeight: '700' },
+  emptyBox:       { alignItems: 'center', paddingVertical: 20, backgroundColor: Colors.white, borderRadius: 14, gap: 8 },
+  emptyIcon:      { fontSize: 36 },
+  emptyText:      { fontSize: 13, color: Colors.mutedFg, fontWeight: '500' },
+  publishBtn:     { backgroundColor: Colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, marginTop: 4 },
+  publishBtnTxt:  { color: Colors.white, fontSize: 12, fontWeight: '800' },
   listingRow: {
     flexDirection: 'row', backgroundColor: Colors.white, borderRadius: 14,
-    overflow: 'hidden',
+    overflow: 'hidden', marginBottom: 8,
     shadowColor: Colors.fg, shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
   },
-  listingImg:     { width: 72, height: 68 },
+  listingEmoji:   { width: 72, height: 68, alignItems: 'center', justifyContent: 'center' },
   listingBody:    { flex: 1, padding: 10 },
   listingTitle:   { fontSize: 13, fontWeight: '700', color: Colors.fg, marginBottom: 2 },
   listingPrice:   { fontSize: 12, fontWeight: '700', color: Colors.primary },
   listingViews:   { fontSize: 11, color: Colors.mutedFg, fontWeight: '500', marginTop: 2 },
   activeBadge:    { backgroundColor: '#DCFCE7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, margin: 10, marginBottom: 4 },
   activeBadgeTxt: { color: '#166534', fontSize: 10, fontWeight: '800' },
-  manageBtn:      { marginHorizontal: 10, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.bg },
-  manageBtnTxt:   { fontSize: 11, fontWeight: '700', color: Colors.mutedFg },
   menu: {
     backgroundColor: Colors.white, borderRadius: 16, overflow: 'hidden',
     shadowColor: Colors.fg, shadowOffset: { width: 0, height: 2 },

@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useCartStore } from '@/store/cartStore';
+import { apiClient } from '@/api/client';
 
 export default function CartScreen() {
   const router = useRouter();
@@ -17,7 +18,40 @@ export default function CartScreen() {
   const total      = useCartStore(s => s.total)();
   const totalItems = useCartStore(s => s.totalItems)();
   const [confirmed, setConfirmed] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const cartItems = items;
+
+  const submitOrder = async () => {
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        items: cartItems.map(item => ({
+          productId: item.listing.id,
+          title: item.listing.title,
+          qty: item.qty,
+          price: typeof item.listing.price === 'number'
+            ? item.listing.price
+            : parseInt(String(item.listing.price).replace(/[^\d]/g, ''), 10) || 0,
+        })),
+        total: total,
+      };
+      await apiClient('/orders', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      setConfirmed(true);
+    } catch (e: any) {
+      const msg = e?.message || '';
+      if (msg.includes('401') || msg.toLowerCase().includes('token')) {
+        alert('Vous devez être connecté pour passer une commande. Veuillez vous connecter dans l\'onglet Profil.');
+      } else {
+        alert('Une erreur est survenue lors de la commande. Vérifiez que le serveur est démarré.');
+      }
+      console.warn('Error submitting order', e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (confirmed) {
     return (
@@ -66,7 +100,10 @@ export default function CartScreen() {
         ) : (
           <>
             {cartItems.map(item => {
-              const price = parseInt(item.listing.price.replace(/\s/g, ''), 10) || 0;
+              const raw = item.listing.price;
+              const price = typeof raw === 'number'
+                ? raw
+                : parseInt(String(raw).replace(/[^\d]/g, ''), 10) || 0;
               return (
                 <View key={item.listing.id} style={styles.item}>
                   <Image source={{ uri: item.listing.image }} style={styles.itemImg} />
@@ -122,8 +159,15 @@ export default function CartScreen() {
 
       {cartItems.length > 0 && (
         <View style={styles.checkoutBar}>
-          <TouchableOpacity style={styles.validateBtn} onPress={() => setConfirmed(true)} activeOpacity={0.85}>
-            <Text style={styles.validateTxt}>✅ Valider la commande — {total.toLocaleString('fr-FR')} FCFA</Text>
+          <TouchableOpacity 
+            style={[styles.validateBtn, isSubmitting && { opacity: 0.7 }]} 
+            onPress={submitOrder} 
+            activeOpacity={0.85}
+            disabled={isSubmitting}
+          >
+            <Text style={styles.validateTxt}>
+              {isSubmitting ? 'Validation...' : `✅ Valider la commande — ${total.toLocaleString('fr-FR')} FCFA`}
+            </Text>
           </TouchableOpacity>
         </View>
       )}

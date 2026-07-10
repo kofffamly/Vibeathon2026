@@ -7,9 +7,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
-import { LISTINGS } from '@/data/mockData';
 import StarRating from '@/components/StarRating';
 import { useCartStore } from '@/store/cartStore';
+import { apiClient } from '@/api/client';
+import { LISTINGS } from '@/data/mockData';
+import type { Listing } from '@/data/mockData';
 
 const BADGE_COLORS: Record<string, string> = {
   récoltes: '#D97706',
@@ -21,12 +23,56 @@ const BADGE_COLORS: Record<string, string> = {
 export default function ListingDetailScreen() {
   const { id }   = useLocalSearchParams<{ id: string }>();
   const router   = useRouter();
-  const listing  = LISTINGS.find(l => l.id === id);
+  const [listing, setListing] = useState<Listing | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
   const addItem  = useCartStore(s => s.addItem);
   const items    = useCartStore(s => s.items);
   const [added, setAdded] = useState(false);
 
+  React.useEffect(() => {
+    const fetchListing = async () => {
+      try {
+        const item = await apiClient(`/products/${id}`);
+        setListing({
+          id: item.id,
+          title: item.titre,
+          description: item.description,
+          price: item.prixUnit,
+          location: item.localisation,
+          category: item.category,
+          seller: item.sellerId || 'Vendeur Inconnu',
+          image: item.imageUrl || 'https://images.unsplash.com/photo-1601593346740-925612772716?w=400&h=300&fit=crop&auto=format',
+          emoji: item.emoji,
+          lat: item.lat,
+          lng: item.lng,
+        });
+      } catch (e: any) {
+        // If product not found on backend (e.g. from old mock data), fallback to local mock
+        const fallback = LISTINGS.find(l => l.id === id);
+        if (fallback) {
+          setListing(fallback);
+        } else {
+          console.warn('Product not found:', id, e?.message);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchListing();
+  }, [id]);
+
   const inCart = items.some(i => i.listing.id === id);
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <View style={styles.notFound}>
+          <Text style={styles.notFoundText}>Chargement...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!listing) {
     return (

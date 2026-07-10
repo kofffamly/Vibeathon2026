@@ -1,15 +1,36 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
-import { BUYER_ORDERS, SELLER_ORDERS } from '@/data/mockData';
 import OrderCard from '@/components/OrderCard';
 import { useCartStore } from '@/store/cartStore';
+import { apiClient } from '@/api/client';
 
 export default function OrdersScreen() {
   const router     = useRouter();
   const [tab, setTab] = useState<'achats' | 'ventes'>('achats');
+  const [ordersData, setOrdersData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  const fetchOrders = async () => {
+    setIsLoading(true);
+    try {
+      const data = await apiClient('/orders');
+      setOrdersData(data);
+    } catch (e: any) {
+      // Silently handle 401 (user not logged in) — show empty list
+      if (!e?.message?.includes('401') && !e?.message?.includes('Token')) {
+        console.warn(e);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Commandes issues du panier validé
   const cartItems = useCartStore(s => s.items);
@@ -18,13 +39,23 @@ export default function OrdersScreen() {
     title:       item.listing.title,
     counterpart: 'Vendeur vérifié',
     qty:         `${item.qty} unité(s)`,
-    total:       `${(parseInt(item.listing.price.replace(/\s/g, ''), 10) * item.qty).toLocaleString('fr-FR')} FCFA`,
+    total:       `${(parseInt(item.listing.price.toString().replace(/\s/g, ''), 10) * item.qty).toLocaleString('fr-FR')} FCFA`,
     date:        new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
     status:      'en_attente' as const,
     image:       item.listing.image,
   }));
 
-  const orders = tab === 'achats' ? [...cartOrders, ...BUYER_ORDERS] : SELLER_ORDERS;
+  const backendOrders = ordersData.map(o => ({
+    id: o.id,
+    title: o.items?.[0]?.title || 'Commande',
+    counterpart: 'AgroMarket',
+    qty: o.items?.length ? `${o.items.length} article(s)` : '1',
+    total: `${o.total} FCFA`,
+    date: new Date(o.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    status: o.status === 'Payée' ? 'confirmee' : 'en_attente',
+  }));
+
+  const orders = tab === 'achats' ? [...cartOrders, ...backendOrders] : [];
 
   const stats = [
     { label: 'Total',    value: orders.length.toString(),                                                                    color: Colors.primary },
@@ -66,7 +97,7 @@ export default function OrdersScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 20, gap: 10, paddingBottom: 32 }}>
-        {orders.map(order => (
+        {isLoading ? <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} /> : orders.map(order => (
           <OrderCard
             key={order.id}
             order={order}

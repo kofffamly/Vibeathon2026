@@ -26,6 +26,7 @@ Le produit est pensé comme une plateforme simple et locale, avec une expérienc
 - Expo Router
 - Zustand pour la gestion d’état
 - Navigation par onglets
+- Installation locale dans `frontend/`
 
 ### Backend
 - Node.js
@@ -34,11 +35,12 @@ Le produit est pensé comme une plateforme simple et locale, avec une expérienc
 - bcryptjs pour le hashage des mots de passe
 - multer pour les uploads
 - stockage temporaire en mémoire pour la version prototype
+- écoute locale sur `http://localhost:3000`
 
 ## 4. Structure du dépôt
 
 - backend/ : API backend
-- frontend/frontend/ : application mobile Expo
+- frontend/ : application mobile Expo
 - frontend/design-spec-businessOnline.md : spécification visuelle et UX du produit
 
 ## 5. Fonctionnalités déjà implémentées
@@ -96,7 +98,7 @@ node src/server.js
 
 ### Frontend
 ```bash
-cd frontend/frontend
+cd frontend
 npm install
 npx expo start --localhost --clear --port 8083
 ```
@@ -111,5 +113,6 @@ Le projet est en état de prototype fonctionnel. Les éléments suivants sont op
 - affichage de l’historique des commandes par utilisateur
 - backend Express local sur `http://localhost:3000`
 - frontend Expo (Metro) côté mobile
+- backend démarré et accessible localement
 
 Il reste des améliorations à faire sur la persistance, la gestion des erreurs réseau et la connexion avec une base de données réelle.

@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiClient, TOKEN_KEY } from '../api/client';
 
 // ── Règles de validation ──────────────────────────────────────────
 
@@ -64,7 +66,14 @@ export function hasErrors(errors: Record<string, string | null>): boolean {
 
 type AuthStore = {
   isLoggedIn: boolean;
-  user: { nom: string; tel: string; role: string[] } | null;
+  user: {
+    nom: string;
+    tel: string;
+    role: string[];
+    localisation?: string;
+    activites?: string[];
+    id?: string;
+  } | null;
   login: (tel: string, mdp: string) => Promise<{ success: boolean; error?: string }>;
   register: (data: {
     nom: string; tel: string; localisation: string;
@@ -82,10 +91,19 @@ export const useAuthStore = create<AuthStore>((set) => ({
     if (hasErrors(errors)) {
       return { success: false, error: 'Formulaire invalide' };
     }
-    // Simulation appel API
-    await new Promise(r => setTimeout(r, 500));
-    set({ isLoggedIn: true, user: { nom: 'Amadou Koné', tel, role: ['Agriculteur'] } });
-    return { success: true };
+    
+    try {
+      const response = await apiClient('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ tel, mdp }),
+      });
+      
+      await AsyncStorage.setItem(TOKEN_KEY, response.token);
+      set({ isLoggedIn: true, user: response.user });
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Erreur lors de la connexion' };
+    }
   },
 
   register: async ({ nom, tel, localisation, activites, mdp }) => {
@@ -93,11 +111,23 @@ export const useAuthStore = create<AuthStore>((set) => ({
     if (hasErrors(errors)) {
       return { success: false, error: 'Formulaire invalide' };
     }
-    // Simulation appel API
-    await new Promise(r => setTimeout(r, 500));
-    set({ isLoggedIn: true, user: { nom, tel, role: activites } });
-    return { success: true };
+    
+    try {
+      const response = await apiClient('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ nom, tel, localisation, activites, mdp }),
+      });
+      
+      await AsyncStorage.setItem(TOKEN_KEY, response.token);
+      set({ isLoggedIn: true, user: response.user });
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Erreur lors de l\'inscription' };
+    }
   },
 
-  logout: () => set({ isLoggedIn: false, user: null }),
+  logout: async () => {
+    await AsyncStorage.removeItem(TOKEN_KEY);
+    set({ isLoggedIn: false, user: null });
+  },
 }));

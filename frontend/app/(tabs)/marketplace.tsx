@@ -8,7 +8,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
-import { LISTINGS, CATEGORIES } from '@/data/mockData';
+import { CATEGORIES } from '@/data/mockData';
+import { useListingStore } from '@/store/listingStore';
 import ListingCard from '@/components/ListingCard';
 import CategoryChip from '@/components/CategoryChip';
 
@@ -16,8 +17,13 @@ export default function MarketplaceScreen() {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState('all');
   const [search, setSearch] = useState('');
+  const { listings, fetchListings, isLoading } = useListingStore();
 
-  const filtered = LISTINGS.filter(l => {
+  React.useEffect(() => {
+    fetchListings();
+  }, [fetchListings]);
+
+  const filtered = listings.filter(l => {
     const matchCat = activeCategory === 'all' || l.category === activeCategory;
     const matchSrch =
       l.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -86,14 +92,14 @@ export default function MarketplaceScreen() {
         </ScrollView>
 
         {/* Featured Banner */}
-        {activeCategory === 'all' && !search && (
+        {activeCategory === 'all' && !search && listings.length > 0 && (
           <TouchableOpacity
             style={styles.banner}
             activeOpacity={0.9}
-            onPress={() => router.push(`/listing/${LISTINGS[0].id}`)}
+            onPress={() => router.push(`/listing/${listings[0].id}`)}
           >
             <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=300&fit=crop&auto=format' }}
+              source={{ uri: listings[0].image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=300&fit=crop&auto=format' }}
               style={StyleSheet.absoluteFillObject}
             />
             <LinearGradient
@@ -104,8 +110,8 @@ export default function MarketplaceScreen() {
             />
             <View style={styles.bannerContent}>
               <Text style={styles.bannerBadge}>🔥 Offre du jour</Text>
-              <Text style={styles.bannerTitle}>Maïs local — 1 200 FCFA/sac</Text>
-              <Text style={styles.bannerSub}>50 sacs disponibles · Korhogo</Text>
+              <Text style={styles.bannerTitle}>{listings[0].title} — {listings[0].price} FCFA</Text>
+              <Text style={styles.bannerSub}>{listings[0].location}</Text>
             </View>
             <View style={styles.bannerBtn}>
               <Text style={styles.bannerBtnTxt}>Voir →</Text>

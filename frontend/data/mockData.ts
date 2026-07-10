@@ -1,13 +1,18 @@
 export type Listing = {
   id: string;
   title: string;
-  price: string;
-  unit: string;
+  price: number | string; // number from backend, string from mock data
+  unit?: string;
   image: string;
   location: string;
-  category: 'récoltes' | 'animaux' | 'intrants' | 'résidus';
+  category: string;
   badge?: string;
-  sellerRating: number;
+  sellerRating?: number;
+  emoji?: string;
+  seller?: string;
+  description?: string;
+  lat?: number;
+  lng?: number;
 };
 
 export type Category = {

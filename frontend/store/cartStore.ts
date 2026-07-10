@@ -46,7 +46,13 @@ export const useCartStore = create<CartStore>()(
       clearCart: () => set({ items: [] }),
 
       total: () => get().items.reduce(
-        (sum, i) => sum + parseInt(i.listing.price.replace(/\s/g, ''), 10) * i.qty, 0
+        (sum, i) => {
+          const raw = i.listing.price;
+          const numericPrice = typeof raw === 'number'
+            ? raw
+            : parseInt(String(raw).replace(/[^\d]/g, ''), 10) || 0;
+          return sum + numericPrice * i.qty;
+        }, 0
       ),
 
       totalItems: () => get().items.reduce((sum, i) => sum + i.qty, 0),
