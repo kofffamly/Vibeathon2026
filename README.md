@@ -2,77 +2,76 @@
 
 Stack : React Native (Expo Router) + Supabase (PostgreSQL + PostGIS + RLS + Storage)
 
+---
+
+## 🚀 Tester l'application (pour les jurés et coéquipiers)
+
+### Méthode rapide — Expo Go (5 minutes)
+
+1. **Installe Expo Go** sur ton téléphone :
+   - Android : https://play.google.com/store/apps/details?id=host.exp.exponent
+   - iOS : https://apps.apple.com/app/expo-go/id982107779
+
+2. **Clone le projet**
+```bash
+git clone https://github.com/<ton-repo>/Vibeathon2026.git
+cd Vibeathon2026/frontend
+```
+
+3. **Configure les variables d'environnement**
+```bash
+cp .env.example .env
+# Les clés sont déjà remplies dans .env.example, rien à modifier
+```
+
+4. **Installe et lance**
+```bash
+npm install
+npx expo start --tunnel
+```
+
+5. **Scanne le QR code** affiché dans le terminal avec Expo Go
+
+---
+
 ## Structure
 
 ```
 Vibeathon2026/
 ├── supabase/migrations/
-│   ├── 0001_init_schema.sql      # Tables profiles + listings (PostGIS)
-│   ├── 0002_rls_policies.sql     # Row Level Security
-│   ├── 0003_storage_policies.sql # Bucket "harvests"
-│   └── 0004_functions.sql        # Trigger new user + nearby_listings RPC
+│   ├── 0001_init_schema.sql
+│   ├── 0002_rls_policies.sql
+│   ├── 0003_storage_policies.sql
+│   └── 0004_functions.sql
 ├── backend/
-│   └── index.js                  # Express (routes protégées, nearby, upload)
+│   └── index.js
 └── frontend/
-    ├── lib/supabase.ts            # Client Supabase + types
+    ├── lib/supabase.ts
     ├── store/
-    │   ├── authStore.ts           # Auth Supabase (login/register/logout)
-    │   └── cartStore.ts           # Panier local (zustand)
+    │   ├── authStore.ts
+    │   └── cartStore.ts
     ├── app/
-    │   ├── (tabs)/marketplace.tsx # Annonces depuis Supabase
-    │   ├── (tabs)/publish.tsx     # Publier une annonce + upload image
-    │   ├── (tabs)/profile.tsx     # Profil utilisateur réel
-    │   ├── listing/[id].tsx       # Détail annonce depuis Supabase
-    │   ├── auth/login.tsx         # Login + Register (Supabase Auth)
-    │   └── cart.tsx               # Panier
+    │   ├── (tabs)/marketplace.tsx
+    │   ├── (tabs)/publish.tsx
+    │   ├── (tabs)/profile.tsx
+    │   ├── listing/[id].tsx
+    │   ├── auth/login.tsx
+    │   └── cart.tsx
     └── components/
-        ├── ListingCard.tsx
-        ├── CategoryChip.tsx
-        ├── ChatBubble.tsx
-        ├── OrderCard.tsx
-        └── StarRating.tsx
 ```
 
-## 1. Supabase — Appliquer les migrations
+## Variables d'environnement
 
 ```bash
-supabase link --project-ref <ton-project-ref>
-supabase db push
-```
-
-## 2. Variables d'environnement
-
-```bash
-# frontend/.env
-EXPO_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-
-# backend/.env
-SUPABASE_URL=https://xxxx.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJ...
-ALLOWED_ORIGINS=http://localhost:8081,exp://localhost:8081
-PORT=3000
-```
-
-## 3. Lancer le frontend
-
-```bash
-cd frontend
-npm install
-npx expo start
-```
-
-## 4. Lancer le backend (optionnel — pour nearby + upload)
-
-```bash
-cd backend
-npm install
-node index.js
+# frontend/.env  (copier depuis .env.example)
+EXPO_PUBLIC_SUPABASE_URL=https://wwmvzmgsbcnwztdussid.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<voir .env.example>
+EXPO_PUBLIC_GROQ_API_KEY=<voir .env.example>
 ```
 
 ## Checklist sécurité
 
-- [x] RLS activé sur `profiles` et `listings`
+- [x] RLS activé sur `profiles`, `recoltes`, `missions_transport`
 - [x] `SUPABASE_SERVICE_ROLE_KEY` uniquement dans le backend
 - [x] `EXPO_PUBLIC_SUPABASE_ANON_KEY` (lecture seule) dans le frontend
 - [x] `.env` dans `.gitignore`
