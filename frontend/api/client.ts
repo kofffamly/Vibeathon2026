@@ -1,15 +1,23 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-// Use localhost for web/iOS simulator, 10.0.2.2 for Android emulator
-// For physical devices, you'd need the actual IP of your machine (e.g., 192.168.1.X)
+// IP locale de la machine de développement (doit être sur le même réseau Wi-Fi que le téléphone)
+// ⚠️ Mettez à jour cette IP si vous changez de réseau Wi-Fi
+const DEV_MACHINE_IP = '192.168.1.7';
+
 const getBaseUrl = () => {
-  if (__DEV__) {
-    if (Platform.OS === 'android') {
-      return 'http://10.0.2.2:3000';
-    }
+  // Emulateur Android interne (special loopback)
+  if (Platform.OS === 'android' && __DEV__) {
+    // Sur émulateur Android : 10.0.2.2 pointe vers le PC hôte
+    // Sur téléphone physique Android : on utilise l'IP du PC
+    return `http://${DEV_MACHINE_IP}:3000`;
   }
-  return process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+  // Web (navigateur) : localhost fonctionne
+  if (Platform.OS === 'web') {
+    return 'http://localhost:3000';
+  }
+  // iOS simulateur ou appareil physique iOS
+  return `http://${DEV_MACHINE_IP}:3000`;
 };
 
 export const API_BASE_URL = getBaseUrl();

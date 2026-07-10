@@ -304,6 +304,7 @@ app.use((req, res) => {
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Backend Vibeathon écoute sur http://localhost:${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Backend Vibeathon écoute sur http://0.0.0.0:${port}`);
+  console.log(`Accessible depuis le réseau local sur http://192.168.1.7:${port}`);
 });
