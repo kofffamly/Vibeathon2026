@@ -48,21 +48,36 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   register: async (email, password, name, phone, zone, roleLabel) => {
+    const role = ROLE_MAP[roleLabel ?? ''] ?? 'acheteur';
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { nom_complet: name } },
+      options: {
+        data: {
+          nom_complet: name,
+          telephone: phone ?? null,
+          zone: zone ?? null,
+          role,
+        },
+      },
     });
-    if (!error && data.user) {
+    if (error) return error.message;
+    if (data.user) {
+      // Upsert profile immediately (in case the trigger doesn't fire fast enough)
       await supabase.from('profiles').upsert({
         uuid: data.user.id,
         nom_complet: name || email.split('@')[0],
         telephone: phone ?? null,
         zone: zone ?? null,
-        role: (ROLE_MAP[roleLabel ?? ''] ?? 'acheteur') as Profile['role'],
+        role,
       }, { onConflict: 'uuid' });
     }
-    return error?.message ?? null;
+    // If email confirmation is disabled, session is available immediately
+    // If not, data.session will be null — show a message
+    if (!data.session && !error) {
+      return 'Vérifiez votre email pour confirmer votre compte.';
+    }
+    return null;
   },
 
   updateProfile: async (data) => {

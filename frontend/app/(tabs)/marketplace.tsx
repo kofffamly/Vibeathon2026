@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
-  StyleSheet, ScrollView, ImageBackground, Animated, Dimensions,
+  StyleSheet, ScrollView, ImageBackground, Animated, Dimensions, Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Recolte } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import ListingCard from '../../components/ListingCard';
@@ -29,8 +29,8 @@ function SkeletonCard() {
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(anim, { toValue: 1,   duration: 700, useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0.4, duration: 700, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1,   duration: 700, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(anim, { toValue: 0.4, duration: 700, useNativeDriver: Platform.OS !== 'web' }),
       ])
     ).start();
   }, []);
@@ -62,7 +62,7 @@ export default function Marketplace() {
   const moveIndicator = (i: number) => {
     Animated.spring(indicatorX, {
       toValue: tabOffsets.current[i] ?? 0,
-      useNativeDriver: true, tension: 60, friction: 10,
+      useNativeDriver: Platform.OS !== 'web', tension: 60, friction: 10,
     }).start();
   };
 
@@ -83,9 +83,9 @@ export default function Marketplace() {
       // Mes propres annonces (tous statuts)
       if (uid) q = q.eq('agriculteur_id', uid);
     } else {
-      // Marché : uniquement disponibles, exclure les siennes si connecté
-      q = q.eq('statut', 'disponible');
-      if (uid) q = q.neq('agriculteur_id', uid);
+      // Marché : disponibles et besoins
+      q = q.in('statut', ['disponible', 'besoin']);
+      // Ne plus exclure les propres annonces de l'utilisateur pour qu'elles s'affichent
       if (tabKey !== 'all') q = q.ilike('type_produit', `%${tabKey}%`);
     }
 
@@ -99,7 +99,11 @@ export default function Marketplace() {
     setLoading(false);
   }, [tabKey, search, session]);
 
-  useEffect(() => { load(); }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   // ── Header de liste ──
   const ListHeader = () => (

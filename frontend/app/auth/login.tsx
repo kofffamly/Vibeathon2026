@@ -32,7 +32,25 @@ export default function Login() {
       ? await login(email, password)
       : await register(email, password, name, phone, location, role);
     setLoading(false);
-    if (err) Alert.alert('Erreur', err);
+    
+    if (err) {
+      if (err.includes('Vérifiez votre email')) {
+        // Email confirmation required — show info, not error
+        Alert.alert(
+          'Compte créé ✅',
+          'Votre compte a été créé. Vérifiez votre boîte mail pour confirmer votre adresse avant de vous connecter.',
+          [{ text: 'OK', onPress: () => setMode('login') }]
+        );
+      } else {
+        Alert.alert('Erreur', err);
+      }
+    } else {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)');
+      }
+    }
   };
 
   return (

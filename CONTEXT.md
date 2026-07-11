@@ -27,18 +27,18 @@ Le produit est pensé comme une plateforme simple et locale, avec une expérienc
 - Zustand pour la gestion d’état
 - Navigation par onglets
 
-### Backend
-- Node.js
-- Express
-- JWT pour l’authentification
-- bcryptjs pour le hashage des mots de passe
-- multer pour les uploads
-- stockage temporaire en mémoire pour la version prototype
+### Backend (BaaS)
+- Supabase (PostgreSQL)
+- Authentification gérée par Supabase Auth (Email/Mot de passe)
+- Base de données temps réel
+- Supabase Storage pour les images des récoltes
+- Row Level Security (RLS) pour la sécurisation des données
 
 ## 4. Structure du dépôt
 
-- backend/ : API backend
-- frontend/frontend/ : application mobile Expo
+- frontend/ : application mobile Expo
+- backend/ : Ancien backend Express (obsolète, remplacé par Supabase)
+- supabase/ : Migrations et schémas SQL pour la base de données
 - frontend/design-spec-businessOnline.md : spécification visuelle et UX du produit
 
 ## 5. Fonctionnalités déjà implémentées
@@ -67,49 +67,40 @@ Le produit est pensé comme une plateforme simple et locale, avec une expérienc
 
 ## 6. Points techniques importants
 
-- L’API backend tourne localement sur http://localhost:3000
-- L’application frontend Expo est accessible via Metro / Expo Go sur un port local (ex. http://localhost:8083)
-- La racine `/` du backend renvoie désormais un message de santé et la liste des principales routes
-- Les données sont actuellement simulées pour permettre une démonstration rapide
+- L'application utilise **Supabase** comme backend-as-a-service.
+- Le backend local Express n'est plus utilisé en production.
+- Les fichiers liés à la base de données (tables `profiles`, `recoltes`, `commandes`, etc.) sont définis via le dashboard Supabase.
+- L’application frontend Expo est accessible via Metro / Expo Go (ex. `npx expo start`).
+- L'authentification a été configurée avec "Confirm email" désactivé sur Supabase pour faciliter les tests sans confirmation par email.
 
-## 7. Routes d’API clés
+## 7. Configuration requise (.env)
 
-- `GET http://localhost:3000/` - état du backend
-- `POST http://localhost:3000/auth/register` - inscription
-- `POST http://localhost:3000/auth/login` - connexion
-- `GET http://localhost:3000/auth/me` - profil de l’utilisateur connecté
-- `GET http://localhost:3000/products` - liste des produits
-- `GET http://localhost:3000/products/:id` - détails d’un produit
-- `POST http://localhost:3000/orders` - créer une commande
-- `GET http://localhost:3000/orders` - récupérer les commandes de l’utilisateur
-- `GET http://localhost:3000/orders/:id` - détails d’une commande
-- `POST http://localhost:3000/orders/:id/pay` - marquer une commande comme payée
+Pour faire fonctionner le projet, un fichier `.env` est nécessaire à la racine du dossier `frontend` avec les clés Supabase :
+```env
+EXPO_PUBLIC_SUPABASE_URL=votre_url_supabase
+EXPO_PUBLIC_SUPABASE_ANON_KEY=votre_cle_anon_supabase
+```
 
 ## 8. Commandes utiles
 
-### Backend
+### Frontend (Expo)
 ```bash
-cd backend
+cd frontend
 npm install
-node src/server.js
-```
-
-### Frontend
-```bash
-cd frontend/frontend
-npm install
-npx expo start --localhost --clear --port 8083
+npx expo start
 ```
 
 ## 9. Statut actuel
 
-Le projet est en état de prototype fonctionnel. Les éléments suivants sont opérationnels :
-- interface principale avec onglets Marché, Panier, Commandes et Profil
-- authentification utilisateur (inscription / connexion)
+Le projet est en état de prototype avancé et pleinement fonctionnel connecté à Supabase :
+- interface principale avec onglets Marché, Publier, Panier, Commandes et Profil
+- authentification utilisateur avec Supabase Auth et création automatique de profil (`profiles`)
+- gestion des annonces de vente et des expressions de besoin (`recoltes`) avec upload d'images sur Supabase Storage
 - panier fonctionnel avec ajout, suppression et modification de quantité
-- validation de commande vers le backend
-- affichage de l’historique des commandes par utilisateur
-- backend Express local sur `http://localhost:3000`
-- frontend Expo (Metro) côté mobile
+- validation de commande enregistrée dans la base de données Supabase (`commandes`)
+- affichage de l’historique des commandes et annonces de l'utilisateur
 
-Il reste des améliorations à faire sur la persistance, la gestion des erreurs réseau et la connexion avec une base de données réelle.
+### Améliorations futures possibles
+- Gestion du paiement en ligne (Mobile Money, etc.)
+- Amélioration de la gestion des erreurs réseau
+- Intégration de l'assistant IA (onglet dédié)

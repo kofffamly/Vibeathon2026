@@ -38,20 +38,25 @@ export default function Publish() {
   const [description, setDescription] = useState('');
   const [quantity, setQuantity] = useState('');
   const [price, setPrice] = useState('');
+  const [budget, setBudget] = useState('');
+  const [urgence, setUrgence] = useState<'faible' | 'normale' | 'urgent'>('normale');
   const [location, setLocation] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const isBesoin = type === 'besoin';
+
   const pickImage = async () => {
     if (images.length >= 5) return Alert.alert('Maximum 5 photos');
     const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7,
+      mediaTypes: ['images'], quality: 0.7,
     });
     if (!res.canceled) setImages(prev => [...prev, res.assets[0].uri]);
   };
 
   const submit = async () => {
-    if (!title || !price || !quantity) return Alert.alert('Erreur', 'Remplis tous les champs obligatoires');
+    if (!title) return Alert.alert('Erreur', 'Le titre est obligatoire');
+    if (!isBesoin && !price) return Alert.alert('Erreur', 'Le prix est obligatoire');
     if (!session) return Alert.alert('Erreur', 'Vous devez être connecté');
     setLoading(true);
 
@@ -74,7 +79,7 @@ export default function Publish() {
     const longitude: number | null = null;
 
     let photo_url: string | null = null;
-    if (images.length > 0) {
+    if (!isBesoin && images.length > 0) {
       const uri = images[0];
       const ext = uri.split('.').pop() ?? 'jpg';
       const path = `${session.user.id}/${Date.now()}.${ext}`;
@@ -85,15 +90,17 @@ export default function Publish() {
           const { data } = supabase.storage.from('harvests').getPublicUrl(path);
           photo_url = data.publicUrl;
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     const { error } = await supabase.from('recoltes').insert({
       agriculteur_id: session.user.id,
       type_produit: category ?? title,
       quantite_kg: parseFloat(quantity) || 0,
-      prix_fcfa_kg: parseFloat(price) || 0,
-      statut: 'disponible',
+      prix_fcfa_kg: isBesoin
+        ? parseFloat(budget) || 0   // budget max pour un besoin
+        : parseFloat(price) || 0,
+      statut: isBesoin ? 'besoin' : 'disponible',
       photo_url,
       latitude,
       longitude,
@@ -101,9 +108,13 @@ export default function Publish() {
 
     setLoading(false);
     if (error) { Alert.alert('Erreur', error.message); return; }
-    Alert.alert('✅ Publié !', 'Votre annonce est en ligne.', [
-      { text: 'OK', onPress: () => router.replace('/(tabs)') },
-    ]);
+    Alert.alert(
+      isBesoin ? '✅ Besoin publié !' : '✅ Publié !',
+      isBesoin
+        ? 'Votre besoin est visible par les vendeurs. Ils pourront vous contacter.'
+        : 'Votre annonce est en ligne.',
+      [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+    );
   };
 
   // ── Étape 1 ──
@@ -189,7 +200,9 @@ export default function Publish() {
             <Text style={s.closeBtnText}>←</Text>
           </TouchableOpacity>
           <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={s.topBarTitle}>Publier une annonce</Text>
+            <Text style={s.topBarTitle}>
+              {isBesoin ? 'Exprimer un besoin' : 'Publier une annonce'}
+            </Text>
             <Text style={s.topBarStep}>Étape 3 sur 3</Text>
           </View>
         </View>
@@ -200,87 +213,174 @@ export default function Publish() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={s.heading}>Détails de l'annonce</Text>
-          <Text style={s.subheading}>Complétez les informations de votre annonce.</Text>
+          {isBesoin ? (
+            /* ───── FORMULAIRE BESOIN ───── */
+            <>
+              <Text style={s.heading}>Décrivez votre besoin</Text>
+              <Text style={s.subheading}>Les vendeurs vous contacteront s'ils peuvent répondre.</Text>
 
-          <TouchableOpacity style={s.photoBox} onPress={pickImage}>
-            {images.length > 0 ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {images.map((uri, i) => <Image key={i} source={{ uri }} style={s.photoThumb} />)}
-              </ScrollView>
-            ) : (
-              <>
-                <Text style={{ fontSize: 28, marginBottom: 6 }}>🖼️</Text>
-                <Text style={s.photoLabel}>Ajouter des photos</Text>
-                <Text style={s.photoSub}>jusqu'à 5 photos (recommandé)</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          <Text style={s.fieldLabel}>TITRE DE L'ANNONCE *</Text>
-          <TextInput
-            style={s.input}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="Ex: Maïs local – récolte 2024"
-            placeholderTextColor="#bbb"
-            returnKeyType="next"
-          />
-
-          <Text style={s.fieldLabel}>DESCRIPTION</Text>
-          <TextInput
-            style={[s.input, s.textarea]}
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Qualité, condition, informations utiles..."
-            placeholderTextColor="#bbb"
-            multiline
-            textAlignVertical="top"
-          />
-
-          <View style={s.row}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.fieldLabel}>QUANTITÉ (kg) *</Text>
+              <Text style={s.fieldLabel}>TITRE DU BESOIN *</Text>
               <TextInput
                 style={s.input}
-                value={quantity}
-                onChangeText={setQuantity}
-                placeholder="Ex: 50"
-                keyboardType="numeric"
+                value={title}
+                onChangeText={setTitle}
+                placeholder="Ex: Je cherche 50 kg de maïs local"
                 placeholderTextColor="#bbb"
                 returnKeyType="next"
               />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.fieldLabel}>PRIX (FCFA/kg) *</Text>
+
+              <Text style={s.fieldLabel}>DESCRIPTION (optionnel)</Text>
+              <TextInput
+                style={[s.input, s.textarea]}
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Précisez : qualité souhaitée, délai, conditions..."
+                placeholderTextColor="#bbb"
+                multiline
+                textAlignVertical="top"
+              />
+
+              <View style={s.row}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.fieldLabel}>QUANTITÉ SOUHAITÉE (kg)</Text>
+                  <TextInput
+                    style={s.input}
+                    value={quantity}
+                    onChangeText={setQuantity}
+                    placeholder="Ex: 50"
+                    keyboardType="numeric"
+                    placeholderTextColor="#bbb"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.fieldLabel}>BUDGET MAX (FCFA)</Text>
+                  <TextInput
+                    style={s.input}
+                    value={budget}
+                    onChangeText={setBudget}
+                    placeholder="Ex: 30 000"
+                    keyboardType="numeric"
+                    placeholderTextColor="#bbb"
+                  />
+                </View>
+              </View>
+
+              <Text style={s.fieldLabel}>URGENCE</Text>
+              <View style={s.urgenceRow}>
+                {(['faible', 'normale', 'urgent'] as const).map(u => (
+                  <TouchableOpacity
+                    key={u}
+                    style={[s.urgenceChip, urgence === u && {
+                      backgroundColor: u === 'urgent' ? '#dc2626' : u === 'faible' ? '#16a34a' : '#d97706',
+                      borderColor: 'transparent',
+                    }]}
+                    onPress={() => setUrgence(u)}
+                  >
+                    <Text style={[s.urgenceText, urgence === u && { color: '#fff' }]}>
+                      {u === 'faible' ? '🟢 Non urgent' : u === 'normale' ? '🟡 Normal' : u === 'urgent' ? '🔴 Urgent' : ''}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={s.fieldLabel}>LOCALISATION</Text>
               <TextInput
                 style={s.input}
-                value={price}
-                onChangeText={setPrice}
-                placeholder="FCFA"
-                keyboardType="numeric"
+                value={location}
+                onChangeText={setLocation}
+                placeholder="📍 Où souhaitez-vous livraison ?"
+                placeholderTextColor="#bbb"
+                returnKeyType="done"
+              />
+            </>
+          ) : (
+            /* ───── FORMULAIRE VENTE ───── */
+            <>
+              <Text style={s.heading}>Détails de l'annonce</Text>
+              <Text style={s.subheading}>Complétez les informations de votre annonce.</Text>
+
+              <TouchableOpacity style={s.photoBox} onPress={pickImage}>
+                {images.length > 0 ? (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {images.map((uri, i) => <Image key={i} source={{ uri }} style={s.photoThumb} />)}
+                  </ScrollView>
+                ) : (
+                  <>
+                    <Text style={{ fontSize: 28, marginBottom: 6 }}>🖼️</Text>
+                    <Text style={s.photoLabel}>Ajouter des photos</Text>
+                    <Text style={s.photoSub}>jusqu'à 5 photos (recommandé)</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <Text style={s.fieldLabel}>TITRE DE L'ANNONCE *</Text>
+              <TextInput
+                style={s.input}
+                value={title}
+                onChangeText={setTitle}
+                placeholder="Ex: Maïs local – récolte 2024"
                 placeholderTextColor="#bbb"
                 returnKeyType="next"
               />
-            </View>
-          </View>
 
-          <Text style={s.fieldLabel}>LOCALISATION</Text>
-          <TextInput
-            style={s.input}
-            value={location}
-            onChangeText={setLocation}
-            placeholder="📍 Ville/Village"
-            placeholderTextColor="#bbb"
-            returnKeyType="done"
-          />
+              <Text style={s.fieldLabel}>DESCRIPTION</Text>
+              <TextInput
+                style={[s.input, s.textarea]}
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Qualité, condition, informations utiles..."
+                placeholderTextColor="#bbb"
+                multiline
+                textAlignVertical="top"
+              />
+
+              <View style={s.row}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.fieldLabel}>QUANTITÉ (kg) *</Text>
+                  <TextInput
+                    style={s.input}
+                    value={quantity}
+                    onChangeText={setQuantity}
+                    placeholder="Ex: 50"
+                    keyboardType="numeric"
+                    placeholderTextColor="#bbb"
+                    returnKeyType="next"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.fieldLabel}>PRIX (FCFA/kg) *</Text>
+                  <TextInput
+                    style={s.input}
+                    value={price}
+                    onChangeText={setPrice}
+                    placeholder="FCFA"
+                    keyboardType="numeric"
+                    placeholderTextColor="#bbb"
+                    returnKeyType="next"
+                  />
+                </View>
+              </View>
+
+              <Text style={s.fieldLabel}>LOCALISATION</Text>
+              <TextInput
+                style={s.input}
+                value={location}
+                onChangeText={setLocation}
+                placeholder="📍 Ville/Village"
+                placeholderTextColor="#bbb"
+                returnKeyType="done"
+              />
+            </>
+          )}
         </ScrollView>
 
         <View style={[s.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
           <TouchableOpacity style={s.publishBtn} onPress={submit} disabled={loading}>
             {loading
               ? <ActivityIndicator color="#fff" />
-              : <Text style={s.publishBtnText}>✨  Publier l'annonce</Text>
+              : <Text style={s.publishBtnText}>
+                {isBesoin ? '🔍  Publier mon besoin' : '✨  Publier l\'annonce'}
+              </Text>
             }
           </TouchableOpacity>
         </View>
@@ -328,4 +428,11 @@ const s = StyleSheet.create({
   nextBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   publishBtn: { backgroundColor: '#2d5a3d', padding: 16, borderRadius: 14, alignItems: 'center' },
   publishBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  urgenceRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  urgenceChip: {
+    flex: 1, paddingVertical: 10, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#e8e0d0',
+  },
+  urgenceText: { fontSize: 12, fontWeight: '700', color: '#555' },
 });
